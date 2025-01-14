@@ -8,7 +8,6 @@ import {
   doc,
   deleteDoc,
   updateDoc,
-  QueryDocumentSnapshot,
   Timestamp,
   FirestoreDataConverter,
 } from 'firebase/firestore';
@@ -39,12 +38,8 @@ const noteConverter: FirestoreDataConverter<FirestoreNote> = {
       createdAt: note.createdAt,
       updatedAt: note.updatedAt,
       isPublic: note.isPublic,
+      shareId: note.shareId || null,
     };
-    
-    // Only include shareId if it exists and is not null
-    if (note.shareId) {
-      data['shareId'] = note.shareId;
-    }
     
     return data;
   },

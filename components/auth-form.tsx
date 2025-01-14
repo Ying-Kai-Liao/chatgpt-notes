@@ -12,7 +12,7 @@ export function AuthForm() {
   const [password, setPassword] = useState('');
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     try {
@@ -23,8 +23,8 @@ export function AuthForm() {
         await signInWithEmail(email, password);
         toast.success('Signed in successfully!');
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Authentication failed');
+    } catch (error: unknown) {
+      toast.error((error as Error).message ?? 'Authentication failed');
     }
   };
 
@@ -32,8 +32,8 @@ export function AuthForm() {
     try {
       await signInWithGoogle();
       toast.success('Signed in with Google successfully!');
-    } catch (error: any) {
-      toast.error(error.message || 'Google sign-in failed');
+    } catch (error: unknown) {
+      toast.error((error as Error).message ?? 'Google sign-in failed');
     }
   };
 

@@ -48,7 +48,7 @@ export default function Home() {
       const noteId = await createNote(user.uid, data.markdown);
 
       router.push(`/note/${noteId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error converting conversation:", error);
       // toast.error(error.message || 'Failed to convert conversation');
     } finally {
