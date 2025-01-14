@@ -144,11 +144,11 @@ export default function NotePage() {
         <Card>
           <CardContent className="p-6">
             {viewRaw ? (
-              <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+              <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded-lg">
                 {note?.content}
               </pre>
             ) : (
-              <div className="prose dark:prose-invert max-w-none">
+              <div className="prose max-w-none">
                 <ReactMarkdown>{note?.content || ''}</ReactMarkdown>
               </div>
             )}

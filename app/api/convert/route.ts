@@ -3,37 +3,35 @@ import { fetchChatGPTConversation, convertToMarkdown } from '@/lib/chatgpt';
 
 export async function POST(request: Request) {
   try {
-    const { link } = await request.json();
-    console.log('Received link:', link);
-    
-    // Extract share ID from the link
-    const shareId = link.split('/').pop();
-    console.log('Extracted share ID:', shareId);
-    
-    if (!shareId) {
-      console.error('Invalid share ID');
+    const { url } = await request.json();
+
+    if (!url) {
       return NextResponse.json(
-        { error: 'Invalid ChatGPT share link' },
+        { error: "ChatGPT share link is required" },
         { status: 400 }
       );
     }
 
-    // Fetch the conversation
-    console.log('Fetching conversation...');
-    const conversation = await fetchChatGPTConversation(shareId);
-    console.log('Debug info:', conversation.debug);
-    console.log('Fetched conversation:', JSON.stringify(conversation, null, 2));
-    
-    // Convert to markdown
-    console.log('Converting to markdown...');
+    // Extract conversation ID from the URL
+    const match = url.match(/\/share\/([\w-]+)/);
+    if (!match) {
+      return NextResponse.json(
+        { error: "Invalid ChatGPT share link" },
+        { status: 400 }
+      );
+    }
+
+    const conversationId = match[1];
+    const conversation = await fetchChatGPTConversation(conversationId);
     const markdown = convertToMarkdown(conversation);
     console.log('Markdown result:', markdown);
 
+    // Just return the markdown, let client handle saving
     return NextResponse.json({ markdown });
   } catch (error) {
     console.error('Error converting chat:', error);
     return NextResponse.json(
-      { error: 'Failed to convert chat', details: error instanceof Error ? error.message : String(error) },
+      { error: "Failed to convert conversation" },
       { status: 500 }
     );
   }
