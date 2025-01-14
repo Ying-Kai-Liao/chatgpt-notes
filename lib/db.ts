@@ -32,15 +32,21 @@ interface FirestoreNote extends Omit<Note, 'id' | 'createdAt' | 'updatedAt'> {
 
 const noteConverter: FirestoreDataConverter<FirestoreNote> = {
   toFirestore: (note: FirestoreNote) => {
-    return {
+    const data = {
       userId: note.userId,
       content: note.content,
       title: note.title,
       createdAt: note.createdAt,
       updatedAt: note.updatedAt,
       isPublic: note.isPublic,
-      shareId: note.shareId,
     };
+    
+    // Only include shareId if it exists and is not null
+    if (note.shareId) {
+      data['shareId'] = note.shareId;
+    }
+    
+    return data;
   },
   fromFirestore: (snapshot): FirestoreNote => {
     const data = snapshot.data();
@@ -51,7 +57,7 @@ const noteConverter: FirestoreDataConverter<FirestoreNote> = {
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
       isPublic: data.isPublic || false,
-      shareId: data.shareId,
+      shareId: data.shareId || null,
     };
   },
 };
@@ -76,7 +82,7 @@ export async function createNote(userId: string, content: string): Promise<strin
       }
     }
 
-    const noteData: Omit<FirestoreNote, 'createdAt' | 'updatedAt'> = {
+    const noteData: Omit<FirestoreNote, 'createdAt' | 'updatedAt' | 'shareId'> = {
       userId,
       content,
       title,
@@ -88,7 +94,7 @@ export async function createNote(userId: string, content: string): Promise<strin
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
-    
+
     return docRef.id;
   } catch (error) {
     console.error('Error creating note:', error);

@@ -1,13 +1,14 @@
-'use client';
+"use client";
 
-import { Inter } from 'next/font/google';
-import { Toaster } from 'react-hot-toast';
-import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
-import GradientText from '@/components/GradientText';
+import { Inter } from "next/font/google";
+import { Toaster } from "react-hot-toast";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import GradientText from "@/components/GradientText";
+import Image from "next/image";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] });
 
 export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -16,22 +17,29 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
     try {
       await logout();
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error("Error logging out:", error);
     }
   };
 
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.className} antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-full flex flex-col`}>
+      <body
+        className={`${inter.className} antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-full flex flex-col`}
+      >
         <Toaster position="bottom-center" />
         <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex">
                 <div className="flex-shrink-0 flex items-center">
-                  <GradientText>
-                    ChatGPT Notes
-                  </GradientText>
+                  <Image
+                    src="/logo.svg"
+                    alt="ChatGPT Notes"
+                    width={32}
+                    height={32}
+                    className="mr-2 filter logo"
+                  />
+                  <span>ChatGPT Notes</span>
                 </div>
               </div>
               {user && (
@@ -55,12 +63,16 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
           <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row items-center justify-center space-x-4">
               <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                &copy; {new Date().getFullYear()} ChatGPT Notes. All rights reserved.
+                &copy; {new Date().getFullYear()} ChatGPT Notes. All rights
+                reserved.
               </p>
               <div className="text-center text-sm flex flex-row text-gray-500 dark:text-gray-400 ">
-                Created by 
+                Created by
                 <GradientText>
-                  <a href="https://github.com/Ying-Kai-Liao" className="hover:underline ml-1">
+                  <a
+                    href="https://github.com/Ying-Kai-Liao"
+                    className="hover:underline ml-1"
+                  >
                     YingKaiLiao
                   </a>
                 </GradientText>

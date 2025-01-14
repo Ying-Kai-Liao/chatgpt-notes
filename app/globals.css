@@ -70,3 +70,9 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.logo {
+  background: linear-gradient(to right, #ffaa40, #9c40ff, #ffaa40);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
