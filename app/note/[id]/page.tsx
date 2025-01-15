@@ -6,10 +6,11 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Copy, Share2, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Copy, Share2, Loader2, Eye, Code, Edit2, Save } from "lucide-react";
 import { useAuth } from '@/lib/auth-context';
-import { getNote, toggleNoteSharing, type Note } from '@/lib/db';
+import { getNote, toggleNoteSharing, updateNote, type Note } from '@/lib/db';
 
 export default function NotePage() {
   const params = useParams();
@@ -18,7 +19,8 @@ export default function NotePage() {
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewRaw, setViewRaw] = useState(false);
+  const [viewMode, setViewMode] = useState<"preview" | "markdown" | "edit">("preview");
+  const [editedContent, setEditedContent] = useState("");
 
   useEffect(() => {
     if (authLoading) return;
@@ -85,6 +87,25 @@ export default function NotePage() {
     }
   };
 
+  const handleEdit = () => {
+    setEditedContent(note?.content || "");
+    setViewMode("edit");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!note) return;
+
+    try {
+      await updateNote(note.id, editedContent);
+      setNote({ ...note, content: editedContent });
+      setViewMode("preview");
+      toast.success("Changes saved successfully");
+    } catch (error) {
+      console.error('Error saving note:', error);
+      toast.error('Failed to save changes');
+    }
+  };
+
   if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
@@ -100,12 +121,12 @@ export default function NotePage() {
           <CardContent className="p-6">
             <div className="text-center space-y-4">
               <p className="text-red-500">{error}</p>
-              <Button asChild>
-                <Link href="/">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
+              <Link href="/">
+                <Button variant="outline" className="flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" />
                   Back to Home
-                </Link>
-              </Button>
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -113,48 +134,96 @@ export default function NotePage() {
     );
   }
 
+  if (!note) return null;
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto space-y-4">
-        <div className="flex justify-between items-center">
-          <Button variant="outline" asChild>
+      <Card className="max-w-4xl mx-auto">
+        <CardHeader className="flex flex-row items-center justify-between border-b p-6">
+          <div className="flex items-center gap-4">
             <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
             </Link>
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setViewRaw(!viewRaw)}>
-              {viewRaw ? 'View Rendered' : 'View Raw'}
-            </Button>
-            <Button variant="outline" onClick={copyToClipboard}>
-              <Copy className="mr-2 h-4 w-4" />
+            <h1 className="text-2xl font-bold">{note.title || 'Untitled Note'}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="bg-gray-100 rounded-lg p-1 flex">
+              <Button
+                variant={viewMode === "preview" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("preview")}
+                className="flex items-center gap-1"
+              >
+                <Eye className="h-4 w-4" />
+                Preview
+              </Button>
+              <Button
+                variant={viewMode === "markdown" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("markdown")}
+                className="flex items-center gap-1"
+              >
+                <Code className="h-4 w-4" />
+                Markdown
+              </Button>
+              <Button
+                variant={viewMode === "edit" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={handleEdit}
+                className="flex items-center gap-1"
+              >
+                <Edit2 className="h-4 w-4" />
+                Edit
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" onClick={copyToClipboard}>
+              <Copy className="h-4 w-4 mr-2" />
               Copy
             </Button>
             <Button 
-              variant={note?.isPublic ? "secondary" : "outline"}
+              variant={note.isPublic ? "secondary" : "outline"} 
+              size="sm"
               onClick={toggleSharing}
             >
-              <Share2 className="mr-2 h-4 w-4" />
-              {note?.isPublic ? 'Shared' : 'Share'}
+              <Share2 className="h-4 w-4 mr-2" />
+              {note.isPublic ? 'Shared' : 'Share'}
             </Button>
           </div>
-        </div>
-
-        <Card>
-          <CardContent className="p-6">
-            {viewRaw ? (
-              <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded-lg">
-                {note?.content}
-              </pre>
-            ) : (
-              <div className="prose max-w-none">
-                <ReactMarkdown>{note?.content || ''}</ReactMarkdown>
+        </CardHeader>
+        <CardContent className="p-6">
+          {viewMode === "edit" ? (
+            <div className="space-y-4">
+              <Textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="font-mono min-h-[400px] p-4"
+                placeholder="Edit your markdown here..."
+              />
+              <div className="flex justify-end">
+                <Button onClick={handleSaveEdit} className="flex items-center gap-1">
+                  <Save className="h-4 w-4" />
+                  Save Changes
+                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+          ) : viewMode === "markdown" ? (
+            <div className="prose max-w-none">
+              <div className="whitespace-pre-wrap font-mono bg-gray-100 p-4 rounded-lg">
+                {note.content}
+              </div>
+            </div>
+          ) : (
+            <div className="prose max-w-none">
+              <div className="bg-white p-6 rounded-lg border">
+                <ReactMarkdown>{note.content}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

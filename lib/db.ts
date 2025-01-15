@@ -176,3 +176,32 @@ export async function getNoteByShareId(shareId: string): Promise<Note | null> {
     updatedAt: doc.data().updatedAt.toDate(),
   } as Note;
 }
+
+export async function updateNote(noteId: string, content: string): Promise<void> {
+  try {
+    if (!content) {
+      throw new Error('Content cannot be empty');
+    }
+
+    // Extract title from the first heading to the next heading or end of text
+    const titleMatch = content.match(/^#\s+([^\n]+)(?:\n|$)/m);
+    let title = 'Untitled Note';
+    
+    if (titleMatch) {
+      title = titleMatch[1].trim().replace(/^\s*|\s*$/g, '');
+      if (title.length > 50) {
+        title = title.substring(0, 47) + '...';
+      }
+    }
+
+    const noteRef = doc(db, 'notes', noteId);
+    await updateDoc(noteRef, {
+      content,
+      title,
+      updatedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    console.error('Error updating note:', error);
+    throw error;
+  }
+}
