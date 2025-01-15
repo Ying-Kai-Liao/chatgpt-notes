@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
+const PROXY_URL = 'https://api.allorigins.win/get?url=';
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -26,25 +28,17 @@ export async function GET(request: Request) {
     }
 
     const targetUrl = `https://chat.openai.com/backend-api/share/${shareId}`;
-    debugInfo.targetUrl = targetUrl;
+    const proxyUrl = `${PROXY_URL}${encodeURIComponent(targetUrl)}`;
+    debugInfo.targetUrl = proxyUrl;
 
     try {
-      const response = await fetch(targetUrl, {
+      const response = await fetch(proxyUrl, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Accept-Language': 'en-US,en;q=0.9',
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-          'sec-ch-ua-mobile': '?0',
-          'sec-ch-ua-platform': '"macOS"',
-          'sec-fetch-dest': 'empty',
-          'sec-fetch-mode': 'cors',
-          'sec-fetch-site': 'same-origin',
-          'Referer': 'https://chat.openai.com/',
         },
         cache: 'no-store',
-        next: { revalidate: 0 }
       });
 
       debugInfo.responseStatus = response.status;
@@ -52,14 +46,19 @@ export async function GET(request: Request) {
       debugInfo.responseHeaders = Object.fromEntries(response.headers.entries());
 
       if (!response.ok) {
-        const contentType = response.headers.get('content-type');
+        // const contentType = response.headers.get('content-type');
         let errorDetails = '';
         
-        if (contentType?.includes('application/json')) {
+        try {
           const errorData = await response.json();
           errorDetails = JSON.stringify(errorData);
-        } else {
-          errorDetails = await response.text();
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            errorDetails = error.message;
+          } else {
+            errorDetails = await response.text();
+          }
+          
           if (errorDetails.toLowerCase().includes('<!doctype html>')) {
             return NextResponse.json(
               {
@@ -82,28 +81,55 @@ export async function GET(request: Request) {
         );
       }
 
-      const data = await response.json();
-      if (!data || !data.mapping) {
+      const proxyResponse = await response.json();
+      
+      if (!proxyResponse.contents) {
         return NextResponse.json(
           {
-            error: 'Invalid response format from ChatGPT API',
+            error: 'Invalid proxy response format',
             details: 'Response does not contain expected data structure',
-            debug: { ...debugInfo, responseData: data }
+            debug: { ...debugInfo, responseData: proxyResponse }
           },
           { status: 500 }
         );
       }
 
-      return new NextResponse(
-        JSON.stringify({ data, debug: debugInfo }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-store, must-revalidate',
-          }
+      try {
+        const data = JSON.parse(proxyResponse.contents);
+        if (!data || !data.mapping) {
+          return NextResponse.json(
+            {
+              error: 'Invalid ChatGPT API response format',
+              details: 'Response does not contain expected data structure',
+              debug: { ...debugInfo, responseData: data }
+            },
+            { status: 500 }
+          );
         }
-      );
+
+        return new NextResponse(
+          JSON.stringify({ data, debug: debugInfo }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-store, must-revalidate',
+            }
+          }
+        );
+      } catch (parseError) {
+        return NextResponse.json(
+          {
+            error: 'Failed to parse ChatGPT API response',
+            details: parseError instanceof Error ? parseError.message : String(parseError),
+            debug: {
+              ...debugInfo,
+              responseContents: proxyResponse.contents
+            }
+          },
+          { status: 500 }
+        );
+      }
     } catch (fetchError) {
       console.error('Fetch error:', fetchError);
       return NextResponse.json(
