@@ -70,28 +70,54 @@ function buildMessageChain(mapping: { [key: string]: ChatGPTMessage }): Message[
 export async function fetchChatGPTConversation(shareId: string): Promise<Conversation> {
   console.log('Fetching conversation for share ID:', shareId);
   
-  // Get the origin for the API call
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-  const response = await fetch(`${origin}/api/proxy/chatgpt?id=${encodeURIComponent(shareId)}`);
+  try {
+    // Use absolute URL for server-side, relative for client-side
+    const url = typeof window === 'undefined'
+      ? `${process.env.NEXT_PUBLIC_API_URL}/api/proxy/chatgpt?id=${encodeURIComponent(shareId)}`
+      : `/api/proxy/chatgpt?id=${encodeURIComponent(shareId)}`;
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error('Error response:', errorData);
-    throw new Error(errorData.error || `Failed to fetch conversation: ${response.statusText}`);
+    const response = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Failed to fetch conversation: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+        console.error('Error details:', errorData);
+      } catch (e) {
+        console.error('Failed to parse error response:', e);
+      }
+      throw new Error(errorMessage);
+    }
+
+    const { data, debug } = await response.json();
+    console.log('Debug info from proxy:', debug);
+    
+    if (!data || !data.mapping) {
+      throw new Error('Invalid response format from ChatGPT API');
+    }
+
+    const messages = buildMessageChain(data.mapping);
+    const filteredMessages = messages.filter(msg => msg.role !== 'system');
+    
+    if (filteredMessages.length === 0) {
+      throw new Error('No valid messages found in conversation');
+    }
+
+    return {
+      title: data.title || 'Untitled Conversation',
+      messages: filteredMessages,
+      debug
+    };
+  } catch (error) {
+    console.error('Error fetching conversation:', error);
+    throw error;
   }
-
-  const { data, debug } = await response.json();
-  console.log('Debug info from proxy:', debug);
-  console.log('Raw API response:', JSON.stringify(data, null, 2));
-  
-  const messages = buildMessageChain(data.mapping);
-  console.log('Messages after filtering:', JSON.stringify(messages.filter(msg => msg.role !== 'system'), null, 2));
-
-  return {
-    title: data.title || 'Untitled Conversation',
-    messages: messages.filter(msg => msg.role !== 'system'),
-    debug
-  };
 }
 
 export function convertToMarkdown(conversation: Conversation): string {
