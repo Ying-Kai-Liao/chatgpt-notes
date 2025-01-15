@@ -16,22 +16,55 @@ export async function POST(request: Request) {
     const match = url.match(/\/share\/([\w-]+)/);
     if (!match) {
       return NextResponse.json(
-        { error: "Invalid ChatGPT share link" },
+        { error: "Invalid ChatGPT share link format" },
         { status: 400 }
       );
     }
 
     const conversationId = match[1];
-    const conversation = await fetchChatGPTConversation(conversationId);
-    const markdown = convertToMarkdown(conversation);
-    console.log('Markdown result:', markdown);
+    console.log('Converting conversation:', conversationId);
 
-    // Just return the markdown, let client handle saving
-    return NextResponse.json({ markdown });
+    try {
+      const conversation = await fetchChatGPTConversation(conversationId);
+      if (!conversation) {
+        return NextResponse.json(
+          { error: "Failed to fetch conversation data" },
+          { status: 500 }
+        );
+      }
+
+      console.log('Fetched conversation:', {
+        title: conversation.title,
+        messageCount: conversation.messages.length
+      });
+
+      const markdown = convertToMarkdown(conversation);
+      console.log('Generated markdown length:', markdown.length);
+
+      return NextResponse.json({ markdown });
+    } catch (conversionError) {
+      console.error('Conversion error:', conversionError);
+      const errorMessage = conversionError instanceof Error 
+        ? conversionError.message 
+        : 'Unknown error occurred';
+
+      // Check for specific error cases
+      if (errorMessage.includes('no longer accessible')) {
+        return NextResponse.json(
+          { error: "This conversation is no longer available. The share link might have expired." },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error('Error converting chat:', error);
+    console.error('Request error:', error);
     return NextResponse.json(
-      { error: "Failed to convert conversation" },
+      { error: "Failed to process request" },
       { status: 500 }
     );
   }
