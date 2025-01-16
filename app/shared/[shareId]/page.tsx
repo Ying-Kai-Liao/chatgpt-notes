@@ -77,7 +77,7 @@ export default function SharedNotePage() {
 
         <Card>
           <CardContent className="p-6">
-            <div className="prose dark:prose-invert max-w-none">
+            <div className="prose max-w-none">
               <ReactMarkdown>{note?.content || ''}</ReactMarkdown>
             </div>
           </CardContent>
