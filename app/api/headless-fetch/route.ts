@@ -130,7 +130,7 @@ export async function GET(request: Request) {
     await page.waitForSelector(selector, { timeout: 10000 });
     
     // Extract JSON content
-    const jsonContent = await page.evaluate((selector) => {
+    const jsonContent = await page.evaluate((selector: string) => {
       const element = document.querySelector(selector);
       if (!element) return null;
       try {
