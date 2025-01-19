@@ -135,7 +135,7 @@ export async function GET(request: Request) {
         // Try to parse the content as JSON
         return JSON.parse(element.textContent || '');
       } catch (e) {
-        // If parsing fails, return the raw text content
+        console.error('Failed to parse JSON:', e);
         return element.textContent;
       }
     }, selector);
@@ -151,7 +151,7 @@ export async function GET(request: Request) {
   } catch (err) {
     console.error(err);
     return NextResponse.json(
-      { error: "Internal Server Error", message: err.message },
+      { error: "Internal Server Error", message: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }
     );
   } finally {

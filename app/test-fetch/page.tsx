@@ -39,7 +39,7 @@ export default function TestFetch() {
       
       setResult(data);
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : err as string);
     } finally {
       setLoading(false);
     }
