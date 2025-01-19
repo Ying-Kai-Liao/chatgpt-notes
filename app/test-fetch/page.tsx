@@ -5,7 +5,10 @@ import { useState } from 'react';
 interface FetchResult {
   content?: string;
   error?: string;
+  markdown?: string;
 }
+
+type FetchMethod = 'GET' | 'POST';
 
 export default function TestFetch() {
   const [url, setUrl] = useState('');
@@ -13,6 +16,7 @@ export default function TestFetch() {
   const [result, setResult] = useState<FetchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [method, setMethod] = useState<FetchMethod>('POST');
 
   const handleFetch = async () => {
     setLoading(true);
@@ -20,16 +24,25 @@ export default function TestFetch() {
     setResult(null);
 
     try {
-      const response = await fetch('/api/headless-fetch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url,
-          selector,
-        }),
-      });
+      let response;
+      if (method === 'GET') {
+        const params = new URLSearchParams({
+          url: encodeURIComponent(url),
+          selector: encodeURIComponent(selector)
+        });
+        response = await fetch(`/api/headless-fetch?${params.toString()}`);
+      } else {
+        response = await fetch('/api/headless-fetch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url,
+            selector,
+          }),
+        });
+      }
       
       const data = await response.json();
       
@@ -50,6 +63,32 @@ export default function TestFetch() {
       <h1 className="text-2xl font-bold mb-6">Test Headless Fetch</h1>
       
       <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Method:</label>
+          <div className="flex space-x-4">
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                value="GET"
+                checked={method === 'GET'}
+                onChange={(e) => setMethod(e.target.value as FetchMethod)}
+                className="form-radio h-4 w-4 text-blue-600"
+              />
+              <span className="ml-2">GET</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                value="POST"
+                checked={method === 'POST'}
+                onChange={(e) => setMethod(e.target.value as FetchMethod)}
+                className="form-radio h-4 w-4 text-blue-600"
+              />
+              <span className="ml-2">POST</span>
+            </label>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium mb-1">URL:</label>
           <input
@@ -96,6 +135,14 @@ export default function TestFetch() {
             <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-[500px]">
               {JSON.stringify(result, null, 2)}
             </pre>
+            {(result.content || result.markdown) && (
+              <div className="mt-4">
+                <h2 className="text-lg font-semibold mb-2">Content:</h2>
+                <div className="bg-gray-100 p-4 rounded overflow-auto max-h-[500px] whitespace-pre-wrap">
+                  {result.content || result.markdown}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
