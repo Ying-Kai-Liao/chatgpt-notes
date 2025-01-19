@@ -19,6 +19,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [convertedContent, setConvertedContent] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"markdown" | "preview">("preview");
+  const [useHeadless, setUseHeadless] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
 
@@ -28,13 +29,15 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      const response = await fetch("/api/convert", {
+      const endpoint = useHeadless ? "/api/headless-fetch" : "/api/convert";
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           url: link,
+          ...(useHeadless && { selector: ".markdown" }), // Add selector for headless fetch
         }),
       });
 
@@ -44,16 +47,18 @@ export default function Home() {
         throw new Error(data.error || "Failed to convert conversation");
       }
 
-      setConvertedContent(data.markdown);
+      // Handle different response formats
+      const markdown = useHeadless ? data.markdown : data.markdown;
+      setConvertedContent(markdown);
       
       // If user is logged in, save the note immediately
       if (user) {
-        const noteId = await createNote(user.uid, data.markdown);
+        const noteId = await createNote(user.uid, markdown);
         router.push(`/note/${noteId}`);
       }
     } catch (error: unknown) {
       console.error("Error converting conversation:", error);
-      // toast.error(error.message || 'Failed to convert conversation');
+      toast.error((error as Error).message || 'Failed to convert conversation');
     } finally {
       setIsLoading(false);
     }
@@ -90,6 +95,18 @@ export default function Home() {
                 onChange={(e) => setLink(e.target.value)}
                 required
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="useHeadless"
+                checked={useHeadless}
+                onChange={(e) => setUseHeadless(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              />
+              <label htmlFor="useHeadless" className="text-sm text-gray-600">
+                Use headless browser (better for complex pages)
+              </label>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (

@@ -13,15 +13,64 @@ interface DebugInfo {
   [key: string]: string | number | boolean;
 }
 
+interface ChatGPTMessageContent {
+  content_type: 'text' | 'multimodal_text' | string;
+  parts: (string | {
+    type: 'image';
+    asset_pointer: string;
+    size?: {
+      width: number;
+      height: number;
+    };
+  })[];
+}
+
+interface ChatGPTMessageMetadata {
+  // Message timing and source
+  timestamp_?: string;
+  message_type?: string;
+  model_slug?: string;
+  parent_id?: string;
+  
+  // Finish reason and token counts
+  finish_details?: {
+    type: string;
+    stop_tokens?: number[];
+  };
+  token_count?: number;
+  
+  // Response and request context
+  response_id?: string;
+  conversation_id?: string;
+  weight?: number;
+  
+  // System and user context
+  user_context?: string;
+  system_prompt?: string;
+  
+  // Citations and references
+  citations?: Array<{
+    start_ix: number;
+    end_ix: number;
+    citation_format: string;
+    metadata: {
+      url?: string;
+      title?: string;
+      text?: string;
+    };
+  }>;
+}
+
 interface ChatGPTMessage {
+  id?: string;
   message: {
     author: {
       role: string;
     };
-    content: {
-      content_type: string;
-      parts: string[];
-    };
+    content: ChatGPTMessageContent;
+    status?: string;
+    weight?: number;
+    metadata?: ChatGPTMessageMetadata;
   };
   parent?: string;
   children?: string[];
@@ -30,40 +79,43 @@ interface ChatGPTMessage {
 function buildMessageChain(mapping: { [key: string]: ChatGPTMessage }): Message[] {
   console.log('Building message chain from mapping:', JSON.stringify(mapping, null, 2));
   
-  // Find the first message (one without a parent)
-  const firstMessageId = Object.keys(mapping).find(
-    (id) => !mapping[id].parent
-  );
-
-  console.log('First message ID:', firstMessageId);
-  if (!firstMessageId) return [];
-
   const messages: Message[] = [];
-  let currentId = firstMessageId;
-
-  while (currentId) {
-    console.log('Processing message ID:', currentId);
+  let currentId = Object.keys(mapping)[0];
+  
+  while (currentId && mapping[currentId]) {
     const currentMessage = mapping[currentId];
-    console.log('Current message:', JSON.stringify(currentMessage, null, 2));
     
-    if (currentMessage.message?.content?.parts?.[0]) {
-      messages.push({
-        role: currentMessage.message.author.role,
-        content: currentMessage.message.content.parts[0],
-      });
+    if (currentMessage.message?.content?.parts?.length > 0) {
+      const parts = currentMessage.message.content.parts;
+      const role = currentMessage.message.author.role;
+      
+      // Convert each part to string safely
+      const content = parts.map(part => {
+        if (typeof part === 'string') {
+          return part;
+        }
+        if (typeof part === 'object' && part !== null) {
+          if (part.type === 'image') {
+            return `[Image${part.size ? ` (${part.size.width}x${part.size.height})` : ''}]`;
+          }
+          return JSON.stringify(part);
+        }
+        return '[Unknown content]';
+      }).join('\n');
+      
+      messages.push({ role, content });
+      
       console.log('Added message:', {
-        role: currentMessage.message.author.role,
-        content: currentMessage.message.content.parts[0].substring(0, 100) + '...',
+        role,
+        contentPreview: content.slice(0, 100) + (content.length > 100 ? '...' : '')
       });
     } else {
       console.log('Skipped message due to missing content');
     }
     
     currentId = currentMessage.children?.[0] || '';
-    console.log('Next message ID:', currentId);
   }
 
-  console.log('Final messages array:', JSON.stringify(messages, null, 2));
   return messages;
 }
 
@@ -95,44 +147,42 @@ export async function fetchChatGPTConversation(shareId: string): Promise<Convers
       throw new Error(errorMessage);
     }
 
-    const { data, debug } = await response.json();
-    console.log('Debug info from proxy:', debug);
+    const responseData = await response.json();
+    // console.log('Fetched conversation data:', JSON.stringify(responseData, null, 2));
     
-    if (!data || !data.mapping) {
-      throw new Error('Invalid response format from ChatGPT API');
+    // Extract data from the nested structure
+    const data = responseData.data || responseData;
+    
+    if (!data?.mapping) {
+      console.error('Invalid data structure:', data);
+      throw new Error('Invalid conversation data: missing mapping');
     }
 
     const messages = buildMessageChain(data.mapping);
-    const filteredMessages = messages.filter(msg => msg.role !== 'system');
-    
-    if (filteredMessages.length === 0) {
-      throw new Error('No valid messages found in conversation');
-    }
-
     return {
       title: data.title || 'Untitled Conversation',
-      messages: filteredMessages,
-      debug
+      messages,
+      debug: {
+        messageCount: messages.length,
+        timestamp: new Date().toISOString()
+      }
     };
   } catch (error) {
-    console.error('Error fetching conversation:', error);
+    console.error('Failed to fetch conversation:', error);
     throw error;
   }
 }
 
 export function convertToMarkdown(conversation: Conversation): string {
-  console.log('Converting conversation to markdown:', JSON.stringify(conversation, null, 2));
+  const lines: string[] = [];
+  lines.push(`# ${conversation.title}\n`);
   
-  let markdown = `# ${conversation.title}\n\n`;
-
-  conversation.messages.forEach((message, index) => {
-    console.log(`Processing message ${index}:`, message);
-    if (message.role !== 'tool') {
-      const role = message.role === 'assistant' ? 'ChatGPT' : 'User';
-      markdown += `## ${role}\n\n${message.content}\n\n`;
-    }
-  });
-
-  console.log('Final markdown:', markdown);
-  return markdown;
+  for (const message of conversation.messages) {
+    const role = message.role === 'assistant' ? 'ChatGPT' : 'User';
+    lines.push(`## ${role}\n`);
+    lines.push(message.content);
+    lines.push(''); // Empty line for spacing
+  }
+  
+  return lines.join('\n');
 }
