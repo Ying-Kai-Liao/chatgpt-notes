@@ -8,8 +8,10 @@ import {
   userAgent,
   remoteExecutablePath,
 } from "@/utils/utils";
-import chromium from "@sparticuz/chromium-min";
-import puppeteer from "puppeteer-core";
+
+const chromium = require("@sparticuz/chromium-min");
+const puppeteer = require("puppeteer-core");
+
 
 interface Message {
   role: string;
@@ -104,7 +106,7 @@ export async function GET(request: Request) {
       executablePath: isDev
         ? localExecutablePath
         : await chromium.executablePath(remoteExecutablePath),
-      headless: isDev ? false : "new",
+      headless: isDev ? "" : "headless",
       debuggingPort: isDev ? 9222 : undefined,
     });
 
