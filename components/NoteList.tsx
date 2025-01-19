@@ -34,7 +34,7 @@ export function NoteList({ className }: { className?: string }) {
   };
 
   useEffect(() => {
-    fetchNotes();
+      fetchNotes();
   }, [user]);
 
   const handleDelete = async (e: React.MouseEvent, noteId: string) => {

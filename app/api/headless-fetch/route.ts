@@ -8,12 +8,8 @@ import {
   userAgent,
   remoteExecutablePath,
 } from "@/utils/utils";
-
-export const maxDuration = 60; // This function can run for a maximum of 60 seconds (update by 2024-05-10)
-export const dynamic = "force-dynamic";
-
-const chromium = require("@sparticuz/chromium-min");
-const puppeteer = require("puppeteer-core");
+import chromium from "@sparticuz/chromium-min";
+import puppeteer from "puppeteer-core";
 
 interface Message {
   role: string;
@@ -77,6 +73,9 @@ function buildMessageChain(mapping: { [key: string]: ChatGPTMessage }): Message[
   
   return messages;
 }
+
+export const maxDuration = 60; // This function can run for a maximum of 60 seconds (update by 2024-05-10)
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -225,7 +224,7 @@ export async function POST(request: Request) {
       const responseText = await response?.text();
       console.log('Raw response:', responseText);
 
-      const jsonContent = JSON.parse(responseText);
+      const jsonContent = JSON.parse(responseText || '{}');
       console.log('Parsed JSON:', jsonContent);
 
       // Extract data from the nested structure

@@ -2,10 +2,15 @@
 
 import { useState } from 'react';
 
+interface FetchResult {
+  content?: string;
+  error?: string;
+}
+
 export default function TestFetch() {
   const [url, setUrl] = useState('');
   const [selector, setSelector] = useState('pre');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<FetchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
