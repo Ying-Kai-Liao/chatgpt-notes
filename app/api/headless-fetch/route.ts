@@ -162,6 +162,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+
+    console.log('Received POST request');
+    console.log('isDev:', isDev);
+    console.log('localExecutablePath:', localExecutablePath);
+    console.log('remoteExecutablePath:', remoteExecutablePath);
   try {
     let { url } = await request.json();
 
