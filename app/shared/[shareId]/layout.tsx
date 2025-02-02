@@ -4,6 +4,7 @@ import { getNoteByShareId } from '@/lib/db';
 type Props = {
   params: { shareId: string }
   children: React.ReactNode
+  searchParams: { [key: string]: string | string[] | undefined }
 }
 
 export async function generateMetadata(
@@ -40,6 +41,6 @@ export async function generateMetadata(
   }
 }
 
-export default function SharedNoteLayout({ children }: Props) {
+export default function SharedNoteLayout({ children }: { children: React.ReactNode }) {
   return children;
 }
