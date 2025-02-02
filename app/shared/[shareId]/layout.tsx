@@ -3,7 +3,6 @@ import { getNoteByShareId } from '@/lib/db';
 
 type Props = {
   params: Promise<{ shareId: string }>
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
 export async function generateMetadata(
