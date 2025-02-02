@@ -55,6 +55,29 @@ export default function NotePage() {
     fetchNote();
   }, [params.id, user, authLoading, router]);
 
+  const fallbackCopyTextToClipboard = (text: string) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    // Prevent scrolling to bottom on iOS
+    textarea.style.position = 'fixed';
+    textarea.style.left = '0';
+    textarea.style.top = '0';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+      document.execCommand('copy');
+      toast.success('Share link copied to clipboard!');
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      toast.error('Failed to copy to clipboard');
+    }
+
+    document.body.removeChild(textarea);
+  };
+
   const copyToClipboard = async () => {
     if (!note) return;
     
@@ -76,8 +99,14 @@ export default function NotePage() {
       
       if (isPublic && shareId) {
         const shareUrl = `${window.location.origin}/shared/${shareId}`;
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success('Share link copied to clipboard!');
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          toast.success('Share link copied to clipboard!');
+        } catch (err) {
+          console.log('Clipboard API failed, using fallback.');
+          fallbackCopyTextToClipboard(shareUrl);
+        }
+        // toast.success(`Share URL: ${shareUrl}`);
       } else {
         toast.success('Note is no longer shared');
       }
@@ -139,18 +168,18 @@ export default function NotePage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <Card className="max-w-4xl mx-auto">
-        <CardHeader className="flex flex-row items-center justify-between border-b p-6">
-          <div className="flex items-center gap-4">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b p-6 space-y-4 sm:space-y-0">
+          <div className="flex flex-row sm:items-center gap-4 min-w-0">
             <Link href="/">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="shrink-0">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
+                <span className="hidden sm:inline">Back</span>
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold">{note.title || 'Untitled Note'}</h1>
+            <h1 className="text-2xl font-bold truncate min-w-0">{note.title || 'Untitled Note'}</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="bg-gray-100 rounded-lg p-1 flex">
+          <div className="flex flex-row justify-between sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto shrink-0">
+            <div className="bg-gray-100 rounded-lg p-1 flex flex-wrap gap-1 sm:flex-nowrap">
               <Button
                 variant={viewMode === "preview" ? "secondary" : "ghost"}
                 size="sm"
@@ -158,7 +187,7 @@ export default function NotePage() {
                 className="flex items-center gap-1"
               >
                 <Eye className="h-4 w-4" />
-                Preview
+                <span className="hidden sm:inline">Preview</span>
               </Button>
               <Button
                 variant={viewMode === "markdown" ? "secondary" : "ghost"}
@@ -167,7 +196,7 @@ export default function NotePage() {
                 className="flex items-center gap-1"
               >
                 <Code className="h-4 w-4" />
-                Markdown
+                <span className="hidden sm:inline">Markdown</span>
               </Button>
               <Button
                 variant={viewMode === "edit" ? "secondary" : "ghost"}
@@ -176,21 +205,24 @@ export default function NotePage() {
                 className="flex items-center gap-1"
               >
                 <Edit2 className="h-4 w-4" />
-                Edit
+                <span className="hidden sm:inline">Edit</span>
               </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={copyToClipboard}>
-              <Copy className="h-4 w-4 mr-2" />
-              Copy
-            </Button>
-            <Button 
-              variant={note.isPublic ? "secondary" : "outline"} 
-              size="sm"
-              onClick={toggleSharing}
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              {note.isPublic ? 'Shared' : 'Share'}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={copyToClipboard} className="flex items-center gap-1">
+                <Copy className="h-4 w-4" />
+                <span className="hidden sm:inline">Copy</span>
+              </Button>
+              <Button 
+                variant={note.isPublic ? "secondary" : "outline"} 
+                size="sm"
+                onClick={toggleSharing}
+                className="flex items-center gap-1"
+              >
+                <Share2 className="h-4 w-4" />
+                <span className="hidden sm:inline">{note.isPublic ? 'Shared' : 'Share'}</span>
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-6">
