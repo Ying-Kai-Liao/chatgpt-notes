@@ -169,14 +169,15 @@ export default function NotePage() {
     <div className="container mx-auto px-4 py-8">
       <Card className="max-w-4xl mx-auto">
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b p-6 space-y-4 sm:space-y-0">
-          <div className="flex flex-row sm:items-center gap-4 min-w-0">
+          <div className="flex flex-row sm:items-center gap-4 min-w-0 max-w-full sm:max-w-[60%]">
             <Link href="/">
               <Button variant="ghost" size="sm" className="shrink-0">
                 <ArrowLeft className="h-4 w-4" />
-                {/* <span className="hidden sm:inline">Back</span> */}
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold truncate min-w-0">{note.title || 'Untitled Note'}</h1>
+            <h1 className="text-2xl font-bold truncate min-w-0" title={note.title || 'Untitled Note'}>
+              {note.title || 'Untitled Note'}
+            </h1>
           </div>
           <div className="flex flex-row justify-between sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto shrink-0">
             <div className="bg-gray-100 rounded-lg p-1 flex flex-wrap gap-1 sm:flex-nowrap">
