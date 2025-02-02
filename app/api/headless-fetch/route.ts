@@ -213,21 +213,27 @@ export async function POST(request: Request) {
         debuggingPort: isDev ? 9222 : undefined,
       });
 
+      console.log('Puppeteer browser opened');
       const pages = await browser.pages();
+      console.log('Puppeteer pages:', pages);
       const page = pages[0];
+      console.log('Puppeteer page opened');
       await page.setUserAgent(userAgent);
       const preloadFile = fs.readFileSync(
         path.join(process.cwd(), "/utils/preload.js"),
         "utf8"
       );
       await page.evaluateOnNewDocument(preloadFile);
+
+      console.log('Navigating to URL:', url);
       
       const response = await page.goto(url, {
         waitUntil: "networkidle2",
         timeout: 60000,
       });
       await cfCheck(page);
-
+      console.log('Navigation complete');
+      
       const responseText = await response?.text();
       console.log('Raw response:', responseText);
 
