@@ -1,13 +1,16 @@
-import type { Metadata } from 'next';
+import { Metadata, ResolvingMetadata } from 'next'
 import { getNoteByShareId } from '@/lib/db';
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { shareId: string };
-}): Promise<Metadata> {
-  const note = await getNoteByShareId(params.shareId);
-  
+export async function generateMetadata(
+  { params }: { params: { shareId: string } },
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  // read route params
+  const note = await getNoteByShareId(params.shareId)
+ 
+  // optionally access and extend (rather than replace) parent metadata
+  const previousImages = (await parent).openGraph?.images || []
+ 
   if (!note) {
     return {
       title: 'LLM Notes',
@@ -15,8 +18,8 @@ export async function generateMetadata({
     }
   }
 
-  const title = note.title || 'Shared Note';
-  const description = note.content.substring(0, 160) + (note.content.length > 160 ? '...' : '');
+  const title = note.title || 'Shared Note'
+  const description = note.content.substring(0, 160) + (note.content.length > 160 ? '...' : '')
 
   return {
     title,
@@ -27,6 +30,7 @@ export async function generateMetadata({
       type: 'article',
       publishedTime: note.createdAt.toISOString(),
       modifiedTime: note.updatedAt.toISOString(),
+      images: Array.isArray(previousImages) ? previousImages : [previousImages],
     },
     twitter: {
       card: 'summary',
@@ -39,7 +43,7 @@ export async function generateMetadata({
 export default function Layout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
-  return children;
+  return children
 }
