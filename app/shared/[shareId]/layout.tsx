@@ -1,15 +1,13 @@
-import { Metadata, ResolvingMetadata } from 'next';
+import type { Metadata } from 'next';
 import { getNoteByShareId } from '@/lib/db';
 
-type Props = {
-  params: { shareId: string }
-  children: React.ReactNode
-  searchParams: { [key: string]: string | string[] | undefined }
-}
+type LayoutProps = {
+  children: React.ReactNode;
+  params: { shareId: string };
+};
 
 export async function generateMetadata(
-  { params }: Props,
-  parent: ResolvingMetadata
+  { params }: LayoutProps
 ): Promise<Metadata> {
   const note = await getNoteByShareId(params.shareId);
   
@@ -41,6 +39,9 @@ export async function generateMetadata(
   }
 }
 
-export default function SharedNoteLayout({ children }: { children: React.ReactNode }) {
+export default function SharedNoteLayout({
+  children,
+  params,
+}: LayoutProps) {
   return children;
 }
