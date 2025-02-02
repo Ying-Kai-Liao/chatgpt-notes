@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "jest"
   },
   "dependencies": {
     "@firebase/auth": "^1.8.1",
@@ -21,7 +22,7 @@
     "clsx": "^2.1.1",
     "firebase": "^11.1.0",
     "lucide-react": "^0.471.1",
-    "next": "15.1.4",
+    "next": "14.0.4",
     "puppeteer-core": "22.7.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
