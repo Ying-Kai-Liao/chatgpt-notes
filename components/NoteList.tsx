@@ -79,24 +79,24 @@ export function NoteList({ className }: { className?: string }) {
   return (
     <div className={`space-y-4 ${className}`}>
       <h2 className="text-xl font-semibold mb-4">Your Notes</h2>
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         {notes.map((note) => (
           <div key={note.id} className="group relative">
             <Link href={`/note/${note.id}`}>
               <Card className="h-full transition-shadow hover:shadow-md">
-                <CardHeader className="p-4">
+                <CardHeader className="p-4 space-y-1">
                   <h3
-                    className="font-medium text-lg truncate"
+                    className="font-medium text-base sm:text-lg truncate"
                     title={note.title}
                   >
-                    {note.title}
+                    {note.title || 'Untitled Note'}
                   </h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs sm:text-sm text-gray-500">
                     {new Date(note.createdAt).toLocaleDateString()}
                   </p>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
-                  <p className="text-sm text-gray-600 line-clamp-2">
+                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">
                     {note.content}
                   </p>
                 </CardContent>

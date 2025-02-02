@@ -172,8 +172,8 @@ export default function NotePage() {
           <div className="flex flex-row sm:items-center gap-4 min-w-0">
             <Link href="/">
               <Button variant="ghost" size="sm" className="shrink-0">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Back</span>
+                <ArrowLeft className="h-4 w-4" />
+                {/* <span className="hidden sm:inline">Back</span> */}
               </Button>
             </Link>
             <h1 className="text-2xl font-bold truncate min-w-0">{note.title || 'Untitled Note'}</h1>
@@ -248,8 +248,8 @@ export default function NotePage() {
               </div>
             </div>
           ) : (
-            <div className="prose max-w-none">
-              <div className="bg-white p-6 rounded-lg border">
+            <div className="prose max-w-none ">
+              <div className="bg-white p-6 rounded-lg">
                 <ReactMarkdown>{note.content}</ReactMarkdown>
               </div>
             </div>

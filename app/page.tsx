@@ -19,7 +19,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [convertedContent, setConvertedContent] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"markdown" | "preview">("preview");
-  const [useHeadless, setUseHeadless] = useState(false);
+  const [useHeadless, setUseHeadless] = useState(true);
   const router = useRouter();
   const { user } = useAuth();
 
@@ -37,7 +37,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           url: link,
-          ...(useHeadless && { selector: ".markdown" }), // Add selector for headless fetch
+          selector: ".markdown", // Always include selector since headless is default
         }),
       });
 
@@ -47,8 +47,7 @@ export default function Home() {
         throw new Error(data.error || "Failed to convert conversation");
       }
 
-      // Handle different response formats
-      const markdown = useHeadless ? data.markdown : data.markdown;
+      const markdown = data.markdown;
       setConvertedContent(markdown);
       
       // If user is logged in, save the note immediately
@@ -78,37 +77,43 @@ export default function Home() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 w-full">
       <Card className="max-w-md mx-auto mb-8">
         <CardHeader>
           <h2 className="text-2xl font-bold text-center">
-            Convert ChatGPT Conversation
+            Convert LLM Chat to Markdown
           </h2>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <div className="flex flex-col space-y-2">
               <Input
                 type="url"
                 placeholder="Paste ChatGPT share link"
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
-                required
+                className="flex-1"
               />
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="useHeadless"
-                checked={useHeadless}
-                onChange={(e) => setUseHeadless(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-              />
-              <label htmlFor="useHeadless" className="text-sm text-gray-600">
+              <div className="hidden items-center justify-between text-sm text-gray-500 ">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="headless"
+                    checked={useHeadless}
+                    onChange={(e) => setUseHeadless(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <label htmlFor="useHeadless" className="hidden text-sm text-gray-600">
                 Use headless browser (better for complex pages)
               </label>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading || !link}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -117,7 +122,7 @@ export default function Home() {
               ) : (
                 <>
                   <LinkIcon className="mr-2 h-4 w-4" />
-                  Convert to Markdown
+                  Convert
                 </>
               )}
             </Button>
