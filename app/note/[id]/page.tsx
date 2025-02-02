@@ -58,24 +58,19 @@ export default function NotePage() {
   const fallbackCopyTextToClipboard = (text: string) => {
     const textarea = document.createElement('textarea');
     textarea.value = text;
-    // Prevent scrolling to bottom on iOS
-    textarea.style.position = 'fixed';
-    textarea.style.left = '0';
-    textarea.style.top = '0';
-    textarea.style.opacity = '0';
+    textarea.style.cssText = 'position: fixed; left: 0; top: 0; opacity: 0;';
     document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
+    
     try {
+      textarea.select();
       document.execCommand('copy');
       toast.success('Share link copied to clipboard!');
     } catch (err) {
       console.error('Fallback copy failed:', err);
       toast.error('Failed to copy to clipboard');
+    } finally {
+      document.body.removeChild(textarea);
     }
-
-    document.body.removeChild(textarea);
   };
 
   const copyToClipboard = async () => {
@@ -99,14 +94,19 @@ export default function NotePage() {
       
       if (isPublic && shareId) {
         const shareUrl = `${window.location.origin}/shared/${shareId}`;
+        console.log('Share URL:', shareUrl); // Debug log
+        
         try {
-          await navigator.clipboard.writeText(shareUrl);
-          toast.success('Share link copied to clipboard!');
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(shareUrl);
+            toast.success('Share link copied to clipboard!');
+          } else {
+            fallbackCopyTextToClipboard(shareUrl);
+          }
         } catch (err) {
-          console.log('Clipboard API failed, using fallback.');
+          console.error('Clipboard error:', err);
           fallbackCopyTextToClipboard(shareUrl);
         }
-        // toast.success(`Share URL: ${shareUrl}`);
       } else {
         toast.success('Note is no longer shared');
       }
