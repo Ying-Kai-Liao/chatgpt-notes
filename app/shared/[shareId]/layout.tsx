@@ -1,14 +1,11 @@
 import type { Metadata } from 'next';
 import { getNoteByShareId } from '@/lib/db';
 
-type LayoutProps = {
-  children: React.ReactNode;
+export async function generateMetadata({
+  params,
+}: {
   params: { shareId: string };
-};
-
-export async function generateMetadata(
-  { params }: LayoutProps
-): Promise<Metadata> {
+}): Promise<Metadata> {
   const note = await getNoteByShareId(params.shareId);
   
   if (!note) {
@@ -39,9 +36,10 @@ export async function generateMetadata(
   }
 }
 
-export default function SharedNoteLayout({
+export default function Layout({
   children,
-  params,
-}: LayoutProps) {
+}: {
+  children: React.ReactNode;
+}) {
   return children;
 }
