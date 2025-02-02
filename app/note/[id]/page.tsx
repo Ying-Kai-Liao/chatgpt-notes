@@ -225,7 +225,7 @@ export default function NotePage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="p-2 sm:p-6">
           {viewMode === "edit" ? (
             <div className="space-y-4">
               <Textarea
@@ -249,7 +249,7 @@ export default function NotePage() {
             </div>
           ) : (
             <div className="prose max-w-none ">
-              <div className="bg-white p-6 rounded-lg">
+              <div className="bg-white p-4 sm:p-6 rounded-lg [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap">
                 <ReactMarkdown>{note.content}</ReactMarkdown>
               </div>
             </div>

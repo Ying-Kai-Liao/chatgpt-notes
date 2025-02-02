@@ -78,7 +78,7 @@ export function NoteList({ className }: { className?: string }) {
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <h2 className="text-xl font-semibold mb-4">Your Notes</h2>
+      <h2 className="text-xl text-white/80 font-semibold mb-4">Your Notes</h2>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         {notes.map((note) => (
           <div key={note.id} className="group relative">
