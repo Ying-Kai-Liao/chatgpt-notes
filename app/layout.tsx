@@ -15,7 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <AuthProvider>
-      <RootLayoutContent>{children}</RootLayoutContent>
+      <RootLayoutContent>
+        {children}
+      </RootLayoutContent>
     </AuthProvider>
   );
 }

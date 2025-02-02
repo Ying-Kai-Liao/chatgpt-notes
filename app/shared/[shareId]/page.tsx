@@ -65,16 +65,13 @@ export default function SharedNotePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto space-y-4">
-        <div className="flex justify-between items-center">
-          <Button variant="outline" asChild>
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
-            </Link>
-          </Button>
-        </div>
-
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Button asChild variant="outline">
+          <Link href="/">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Home
+          </Link>
+        </Button>
         <Card>
           <CardContent className="p-6">
             <div className="prose max-w-none">
