@@ -1,12 +1,17 @@
 import { Metadata, ResolvingMetadata } from 'next'
 import { getNoteByShareId } from '@/lib/db';
 
+type Props = {
+  params: Promise<{ shareId: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
 export async function generateMetadata(
-  { params }: { params: { shareId: string } },
+  { params, searchParams }: Props,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   // read route params
-  const note = await getNoteByShareId(params.shareId)
+  const note = await getNoteByShareId((await params).shareId)
  
   // optionally access and extend (rather than replace) parent metadata
   const previousImages = (await parent).openGraph?.images || []
