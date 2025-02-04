@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,21 @@ export default function Home() {
   const [useHeadless, setUseHeadless] = useState(true);
   const router = useRouter();
   const { user } = useAuth();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState<number>(0);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          setContentHeight(entry.contentRect.height);
+        }
+      });
+
+      resizeObserver.observe(contentRef.current);
+      return () => resizeObserver.disconnect();
+    }
+  }, [convertedContent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +94,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-cyan-600 to-blue-200">
-      <div className="fixed top-24 left-0 right-0 z-10 bg-none">
+      <div className={`${convertedContent ? 'relative top-12' : 'fixed top-24'} left-0 right-0 z-10 bg-none`}>
         <div className="container mx-auto px-4">
           <div className="h-[220px]">
             <FlutedGlass type="fluted">
@@ -139,9 +154,9 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 pt-[280px] pb-20">
+      <div className="container mx-auto px-4 pt-24 pb-20">
         {convertedContent && (
-          <div className="h-[500px]">
+          <div className="transition-all duration-300" style={{ height: contentHeight ? `${contentHeight + 120}px` : 'auto' }}>
             <FlutedGlass type="cross">
               <Card className="w-full h-full bg-white/40">
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -174,7 +189,7 @@ export default function Home() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent ref={contentRef}>
                   {viewMode === "markdown" ? (
                     <div className="prose max-w-none">
                       <div className="whitespace-pre-wrap font-mono bg-gray-100 p-4 rounded-lg">
