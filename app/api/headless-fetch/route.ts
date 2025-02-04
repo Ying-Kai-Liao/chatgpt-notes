@@ -12,7 +12,6 @@ import {
 const chromium = require("@sparticuz/chromium-min");
 const puppeteer = require("puppeteer-core");
 
-
 interface Message {
   role: string;
   content: string;
@@ -76,8 +75,12 @@ function buildMessageChain(mapping: { [key: string]: ChatGPTMessage }): Message[
   return messages;
 }
 
-export const maxDuration = 60; // This function can run for a maximum of 60 seconds (update by 2024-05-10)
-export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
+// Configure for Node.js runtime with increased timeout
+export const runtime = 'nodejs';
+export const revalidate = 0;
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -211,6 +214,7 @@ export async function POST(request: Request) {
           : await chromium.executablePath(remoteExecutablePath),
         headless: isDev ? false : "new",
         debuggingPort: isDev ? 9222 : undefined,
+        timeout: 60000, // Set global timeout to 60 seconds
       });
 
       console.log('Puppeteer browser opened');
@@ -219,6 +223,8 @@ export async function POST(request: Request) {
       const page = pages[0];
       console.log('Puppeteer page opened');
       await page.setUserAgent(userAgent);
+      await page.setDefaultTimeout(60000); // Set page-level timeout to 60 seconds
+      await page.setDefaultNavigationTimeout(60000); // Set navigation timeout to 60 seconds
       const preloadFile = fs.readFileSync(
         path.join(process.cwd(), "/utils/preload.js"),
         "utf8"
@@ -235,10 +241,10 @@ export async function POST(request: Request) {
       console.log('Navigation complete');
       
       const responseText = await response?.text();
-      console.log('Raw response:', responseText);
+    //   console.log('Raw response:', responseText);
 
       const jsonContent = JSON.parse(responseText || '{}');
-      console.log('Parsed JSON:', jsonContent);
+    //   console.log('Parsed JSON:', jsonContent);
 
       // Extract data from the nested structure
       const data = jsonContent.data || jsonContent;
@@ -252,7 +258,7 @@ export async function POST(request: Request) {
       }
 
       const messages = buildMessageChain(data.mapping);
-      console.log('Built message chain:', messages);
+    //   console.log('Built message chain:', messages);
 
       // Convert to markdown format
       const lines: string[] = [];
