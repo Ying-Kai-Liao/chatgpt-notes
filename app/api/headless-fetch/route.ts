@@ -233,10 +233,50 @@ export async function POST(request: Request) {
 
       console.log('Navigating to URL:', url);
       
-      const response = await page.goto(url, {
-        waitUntil: "networkidle2",
-        timeout: 60000,
-      });
+      let response = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          // First wait for network to be idle
+          await page.waitForNetworkIdle({ timeout: 10000 }).catch(() => {
+            console.log('Network not completely idle, proceeding anyway');
+          });
+
+          response = await page.goto(url, {
+            waitUntil: ['load', 'domcontentloaded', 'networkidle2'],
+            timeout: 30000,
+          });
+
+          // Check if we got a valid response
+          if (response && response.ok()) {
+            console.log('Navigation successful');
+            break;
+          } else {
+            throw new Error('Invalid response');
+          }
+        } catch (error) {
+          console.error(`Navigation attempt ${retryCount + 1} failed:`, error);
+          retryCount++;
+          
+          if (retryCount === maxRetries) {
+            throw new Error('Failed to navigate after maximum retries');
+          }
+          
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Clear cache and cookies before retrying
+          await page.setCacheEnabled(false);
+          const client = await page.target().createCDPSession();
+          await client.send('Network.clearBrowserCookies');
+          await client.send('Network.clearBrowserCache');
+          
+          console.log('Retrying navigation...');
+        }
+      }
+
       await cfCheck(page);
       console.log('Navigation complete');
       
