@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
-import { Loader2, LinkIcon, Eye, Code } from "lucide-react";
+import { Loader2, LinkIcon, Eye, Code, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createNote } from "@/lib/db";
 import { AuthForm } from "@/components/auth-form";
@@ -100,7 +100,7 @@ export default function Home() {
             <FlutedGlass type="fluted">
               <Card className="w-full h-full bg-glassy">
                 <CardHeader>
-                  <h2 className="text-2xl font-bold text-center text-white/80">
+                <h2 className="text-2xl font-bold text-center text-white/80">
                     Convert LLM Chat to Markdown
                   </h2>
                 </CardHeader>
@@ -129,24 +129,40 @@ export default function Home() {
                         Use headless browser (better for complex pages)
                       </label>
                     </div>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={isLoading || !link}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Converting...
-                        </>
-                      ) : (
-                        <>
-                          <LinkIcon className="mr-2 h-4 w-4" />
-                          Convert
-                        </>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <Button
+                        type="submit"
+                        className="flex-1"
+                        disabled={isLoading || !link}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <span className="hidden sm:inline">Converting...</span>
+                            <span className="sm:hidden">Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <LinkIcon className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Convert Chat</span>
+                            <span className="sm:hidden">Convert</span>
+                          </>
+                        )}
+                      </Button>
+                      {user && (
+                        <Button
+                          onClick={() => router.push('/new')}
+                          className="flex-1"
+                          variant="secondary"
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          <span className="hidden sm:inline">Create New Note From Scratch</span>
+                          <span className="sm:hidden">New</span>
+                        </Button>
                       )}
-                    </Button>
+                    </div>
                   </form>
+                  
                 </CardContent>
               </Card>
             </FlutedGlass>
@@ -154,7 +170,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 pt-24 pb-20">
+      <div className="container mx-auto px-4 pt-72 pb-20">
         {convertedContent && (
           <div className="transition-all duration-300" style={{ height: contentHeight ? `${contentHeight + 120}px` : 'auto' }}>
             <FlutedGlass type="cross">

@@ -6,14 +6,18 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Edit } from "lucide-react";
 import { getNoteByShareId, type Note } from '@/lib/db';
+import { useAuth } from '@/lib/auth-context';
+import { createNote } from '@/lib/db';
+import toast from 'react-hot-toast';
 
 export default function SharedNotePage() {
   const params = useParams();
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchNote = async () => {
@@ -66,12 +70,38 @@ export default function SharedNotePage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        <Button asChild variant="outline">
-          <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Link>
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button asChild variant="outline">
+            <Link href="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Link>
+          </Button>
+          {user && (note?.userId === user.uid ? (
+            <Button asChild className="flex items-center">
+              <Link href={`/note/${note.id}`}>
+                <Edit className="h-4 w-4" />
+                <span className="ml-2 hidden sm:inline">Edit Note</span>
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              onClick={async () => {
+                try {
+                  await createNote(user.uid, note?.content || '');
+                  toast.success('Note saved to your collection');
+                } catch (error) {
+                  console.error('Error saving note:', error);
+                  toast.error('Failed to save note');
+                }
+              }}
+              className="flex items-center"
+            >
+              <Save className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Save and Edit Notes</span>
+            </Button>
+          ))}
+        </div>
         <Card>
           <CardContent className="p-6">
             <div className="prose max-w-none">

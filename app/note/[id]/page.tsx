@@ -177,18 +177,18 @@ export default function NotePage() {
       <Card className="max-w-4xl mx-auto">
         <CardHeader className="flex flex-col space-y-4 border-b">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
-            <div className="flex flex-row sm:items-center gap-4 min-w-0 max-w-full sm:max-w-[60%]">
+            <div className="flex flex-row sm:items-center gap-4 min-w-0 max-w-full sm:max-w-[60%] sm:min-w-0">
               <Link href="/">
                 <Button variant="ghost" size="sm" className="shrink-0">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
-              <h1 className="text-2xl font-bold truncate min-w-0" title={note.title || 'Untitled Note'}>
+              <h1 className="text-2xl font-bold truncate min-w-0 sm:hidden" title={note.title || 'Untitled Note'}>
                 {note.title || 'Untitled Note'}
               </h1>
             </div>
 
-            <div className="flex flex-row items-center justify-between gap-2 min-w-full">
+            <div className="flex flex-row items-center justify-between gap-2 min-w-full sm:min-w-[93%]">
               <div className="bg-gray-100 rounded-lg p-1 flex flex-wrap gap-1 sm:flex-nowrap">
                 <Button
                   variant={viewMode === "preview" ? "secondary" : "ghost"}
