@@ -1,0 +1,18 @@
+{
+  "name": "llmmd",
+  "private": true,
+  "scripts": {
+    "dev:nextjs": "npm run dev --workspace=apps/nextjs-app",
+    "dev:chrome": "npm run dev --workspace=apps/chrome-extension",
+    "build:nextjs": "npm run build --workspace=apps/nextjs-app",
+    "build:chrome": "npm run build --workspace=apps/chrome-extension",
+    "dev": "concurrently \"npm run dev:nextjs\" \"npm run dev:chrome\""
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
