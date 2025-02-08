@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import BackToTop from '@/components/BackToTop';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -175,6 +176,7 @@ export default function NotePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <BackToTop />
       <Card className="max-w-4xl mx-auto">
         <CardHeader className="flex flex-col space-y-4 border-b">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
