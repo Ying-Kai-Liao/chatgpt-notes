@@ -45,25 +45,21 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      const endpoint = useHeadless ? "/api/headless-fetch" : "/api/convert";
-      const response = await fetch(endpoint, {
-        method: "POST",
+      const response = await fetch('/api/chatgpt', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          url: link,
-          selector: ".markdown", // Always include selector since headless is default
-        }),
+        body: JSON.stringify({ url: link }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to convert conversation");
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to convert conversation');
       }
 
-      const markdown = data.markdown;
+      const data = await response.json();
+      const markdown = data.content;
       setConvertedContent(markdown);
       
       // If user is logged in, save the note immediately
@@ -101,7 +97,7 @@ export default function Home() {
               <Card className="w-full h-full bg-glassy">
                 <CardHeader>
                 <h2 className="text-2xl font-bold text-center text-white/80">
-                    Convert LLM Chat to Markdown
+                    Convert LLM Chat / Canva to Markdown
                   </h2>
                 </CardHeader>
                 <CardContent>
@@ -109,7 +105,7 @@ export default function Home() {
                     <div className="flex flex-col space-y-2">
                       <Input
                         type="url"
-                        placeholder="Paste ChatGPT share link"
+                        placeholder="Paste ChatGPT share link (chat / canva)"
                         value={link}
                         onChange={(e) => setLink(e.target.value)}
                         className="flex-1 placeholder:text-white/70 text-white/80 outline-none ring-offset-background focus-visible:outline-none"
@@ -125,9 +121,6 @@ export default function Home() {
                           />
                         </div>
                       </div>
-                      <label htmlFor="useHeadless" className="hidden text-sm text-gray-600">
-                        Use headless browser (better for complex pages)
-                      </label>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4">
                       <Button
