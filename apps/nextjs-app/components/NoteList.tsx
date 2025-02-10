@@ -112,7 +112,7 @@ export default function NoteList() {
         </div>
 
         <div className="space-y-8">
-          {notes.map((group) => (
+          {notes.slice().reverse().map((group) => (
             <div key={group.workspace.id ?? 'root'} className="space-y-4">
               <h2 className="text-lg font-semibold">
                 {group.workspace.name}

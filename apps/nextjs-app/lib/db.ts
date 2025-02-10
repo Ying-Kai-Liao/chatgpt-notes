@@ -31,6 +31,18 @@ export interface Note {
   isFavorite?: boolean;
 }
 
+export interface NoteMetadata {
+  id: string;
+  title: string;
+  userId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isPublic: boolean;
+  shareId?: string;
+  workspaceId: string | null;
+  isFavorite?: boolean;
+}
+
 const noteConverter: FirestoreDataConverter<Note> = {
   toFirestore(note: Note): DocumentData {
     return {
@@ -60,6 +72,38 @@ const noteConverter: FirestoreDataConverter<Note> = {
       isPublic: data.isPublic ?? false,
       shareId: data.shareId,
       workspaceId: data.workspaceId ?? null,
+      isFavorite: data.isFavorite || false,
+    };
+  },
+};
+
+const noteMetadataConverter: FirestoreDataConverter<NoteMetadata> = {
+  toFirestore(note: NoteMetadata): DocumentData {
+    return {
+      userId: note.userId,
+      title: note.title,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
+      isPublic: note.isPublic,
+      shareId: note.shareId || null,
+      workspaceId: note.workspaceId || null,
+      isFavorite: note.isFavorite || false,
+    };
+  },
+  fromFirestore(
+    snapshot: QueryDocumentSnapshot,
+    options: SnapshotOptions
+  ): NoteMetadata {
+    const data = snapshot.data(options);
+    return {
+      id: snapshot.id,
+      title: data.title || '',
+      userId: data.userId,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+      isPublic: data.isPublic || false,
+      shareId: data.shareId,
+      workspaceId: data.workspaceId,
       isFavorite: data.isFavorite || false,
     };
   },
@@ -192,15 +236,29 @@ export interface WorkspaceNotesGroup {
     id: string | null;
     name: string;
   };
-  notes: Note[];
+  notes: NoteMetadata[];
 }
 
 export async function getUserNotesWithWorkspaces(userId: string): Promise<WorkspaceNotesGroup[]> {
-  // Get all notes
-  const notesRef = collection(db, 'notes').withConverter(noteConverter);
+  // Get all notes metadata (excluding content)
+  const notesRef = collection(db, 'notes').withConverter(noteMetadataConverter);
   const q = query(notesRef, where('userId', '==', userId));
   const querySnapshot = await getDocs(q);
-  const notes = querySnapshot.docs.map(doc => doc.data());
+  const notes = querySnapshot.docs.map(doc => {
+    const data = doc.data();
+    // Only include the fields we need to minimize data transfer
+    return {
+      id: doc.id,
+      title: data.title,
+      userId: data.userId,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+      isPublic: data.isPublic,
+      shareId: data.shareId,
+      workspaceId: data.workspaceId,
+      isFavorite: data.isFavorite,
+    };
+  });
 
   // Get all workspaces
   const workspacesRef = collection(db, 'workspaces');
@@ -213,7 +271,7 @@ export async function getUserNotesWithWorkspaces(userId: string): Promise<Worksp
   });
 
   // Group notes by workspace
-  const workspaceGroups = new Map<string | null, Note[]>();
+  const workspaceGroups = new Map<string | null, NoteMetadata[]>();
   notes.forEach(note => {
     const workspaceId = note.workspaceId;
     if (!workspaceGroups.has(workspaceId)) {
@@ -223,23 +281,30 @@ export async function getUserNotesWithWorkspaces(userId: string): Promise<Worksp
   });
 
   // Convert to array and sort notes within each group
-  return Array.from(workspaceGroups.entries()).map(([workspaceId, notes]) => ({
-    workspace: {
-      id: workspaceId,
-      name: workspaceId === null 
-        ? 'My Notes' 
-        : (workspaces.get(workspaceId)?.name || 'Unnamed Workspace'),
-    },
-    notes: notes.sort((a, b) => b.updatedAt.toMillis() - a.updatedAt.toMillis()),
-  }));
+  return Array.from(workspaceGroups.entries())
+    .map(([workspaceId, notes]) => ({
+      workspace: {
+        id: workspaceId,
+        name: workspaceId === null 
+          ? 'Singles'
+          : (workspaces.get(workspaceId)?.name || 'Unnamed Workspace'),
+      },
+      notes: notes.sort((a, b) => b.updatedAt.toMillis() - a.updatedAt.toMillis()),
+    }))
+    .sort((a, b) => {
+      // Sort Singles to the end
+      if (a.workspace.id === null) return 1;
+      if (b.workspace.id === null) return -1;
+      return a.workspace.name.localeCompare(b.workspace.name);
+    });
 }
 
-export interface MigrationResult {
-  success: boolean;
-  message: string;
-  total: number;
-  migrated: number;
-  needsMigration: number;
+// Function to get note content when needed
+export async function getNoteContent(noteId: string): Promise<string | null> {
+  const noteRef = doc(db, 'notes', noteId);
+  const noteSnap = await getDoc(noteRef);
+  if (!noteSnap.exists()) return null;
+  return noteSnap.data().content || '';
 }
 
 export async function migrateNotesToWorkspace(): Promise<{ total: number; migrated: number; needsMigration: number }> {
@@ -270,7 +335,7 @@ export async function migrateNotesToWorkspace(): Promise<{ total: number; migrat
   return { total, migrated, needsMigration };
 }
 
-export async function checkMigrationStatus(): Promise<MigrationResult> {
+export async function checkMigrationStatus(): Promise<{ success: boolean; message: string; total: number; migrated: number; needsMigration: number }> {
   try {
     const notesRef = collection(db, 'notes').withConverter(noteConverter);
     const snapshot = await getDocs(notesRef);
@@ -308,7 +373,7 @@ export async function checkMigrationStatus(): Promise<MigrationResult> {
   }
 }
 
-export async function migrateAllUsersNotes(): Promise<MigrationResult> {
+export async function migrateAllUsersNotes(): Promise<{ success: boolean; message: string; total: number; migrated: number; needsMigration: number }> {
   try {
     const notesRef = collection(db, 'notes').withConverter(noteConverter);
     const snapshot = await getDocs(notesRef);

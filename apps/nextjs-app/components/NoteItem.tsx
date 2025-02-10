@@ -21,11 +21,11 @@ import {
   StarOff,
   Edit,
 } from 'lucide-react';
-import { deleteNote, type Note } from '@/lib/db';
+import { deleteNote, type NoteMetadata } from '@/lib/db';
 import toast from 'react-hot-toast';
 
 interface NoteItemProps {
-  note: Note;
+  note: NoteMetadata;
   onDelete: () => void;
   onAddToWorkspace?: (noteId: string) => void;
   onToggleFavorite?: (noteId: string, isFavorite: boolean) => void;
@@ -86,14 +86,15 @@ export default function NoteItem({
       <Card className="hover:shadow-md transition-shadow">
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
           <div className="flex items-center space-x-2">
-            <h3 className="font-medium text-lg line-clamp-1">{note.title || 'Untitled'}</h3>
+            <h3 className="font-medium text-lg h-16">{note.title || 'Untitled'}</h3>
             {note.isPublic && (
-              <div className="flex items-center text-sm text-blue-600">
+              <div className="flex items-center text-sm">
                 <Share2 className="h-4 w-4" />
               </div>
             )}
           </div>
           <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+
             <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
               <Button
                 variant="ghost"
@@ -104,6 +105,7 @@ export default function NoteItem({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
+            
             <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
               <DropdownMenuItem onClick={(e) => {
                 e.preventDefault();
@@ -149,7 +151,7 @@ export default function NoteItem({
           </DropdownMenu>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500 line-clamp-2">{note.content}</p>
+          {/* <p className="text-sm text-gray-500 line-clamp-2">{note.content}</p> */}
           <p className="text-xs text-gray-400 mt-2">
             {new Date(note.updatedAt.toDate()).toLocaleDateString(undefined, {
               year: 'numeric',
