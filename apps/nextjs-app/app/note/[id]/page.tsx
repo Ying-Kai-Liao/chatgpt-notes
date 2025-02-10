@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Copy, Share2, Loader2, Eye, Code, Edit2, Save, FileDown } from "lucide-react";
 import { useAuth } from '@/lib/auth-context';
 import { getNote, toggleNoteSharing, updateNote, type Note } from '@/lib/db';
-import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Link as PdfLink, StyleSheet, pdf } from '@react-pdf/renderer';
 import { marked } from 'marked';
 
 export default function NotePage() {
@@ -29,6 +29,7 @@ export default function NotePage() {
   const [editedContent, setEditedContent] = useState("");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingTestPdf, setExportingTestPdf] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -164,39 +165,51 @@ export default function NotePage() {
     }
 
     const renderInlineContent = (text: string): React.ReactNode => {
-      // Special handling for "_Date: date_" pattern
-      const dateMatch = text.match(/^_Date:\s*(.*?)_$/);
-      if (dateMatch) {
-        return (
-          <Text style={styles.date}>
-            <Text style={styles.datePrefix}>Date: </Text>
-            {dateMatch[1]}
-          </Text>
-        );
-      }
+      try {
+        // Special handling for "_Date: date_" pattern
+        const dateMatch = text.match(/^_Date:\s*(.*?)_$/);
+        if (dateMatch) {
+          return (
+            <Text style={styles.date}>
+              <Text style={styles.datePrefix}>Date: </Text>
+              {dateMatch[1]}
+            </Text>
+          );
+        }
 
-      // Handle inline styles
-      const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\)|_.*?_)/);
-      return parts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <Text key={i} style={styles.strong}>{part.slice(2, -2)}</Text>;
-        }
-        if (part.startsWith('*') && part.endsWith('*') || part.startsWith('_') && part.endsWith('_')) {
-          return <Text key={i} style={styles.emphasis}>{part.slice(1, -1)}</Text>;
-        }
-        if (part.startsWith('`') && part.endsWith('`')) {
-          return <Text key={i} style={styles.code}>{part.slice(1, -1)}</Text>;
-        }
-        if (part.match(/\[(.*?)\]\((.*?)\)/)) {
-          const [, text, url] = part.match(/\[(.*?)\]\((.*?)\)/)!;
-          return <Text key={i} style={styles.link}>{text}</Text>;
-        }
-        // Check for date pattern (e.g., "February 11, 2025")
-        if (part.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b/)) {
-          return <Text key={i} style={styles.date}>{part}</Text>;
-        }
-        return part;
-      });
+        // Handle inline styles
+        const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\)|_.*?_)/);
+        return parts.map((part, i) => {
+          try {
+            if (!part) return null;
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <Text key={i} style={styles.strong}>{part.slice(2, -2)}</Text>;
+            }
+            if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) {
+              return <Text key={i} style={styles.emphasis}>{part.slice(1, -1)}</Text>;
+            }
+            if (part.startsWith('`') && part.endsWith('`')) {
+              return <Text key={i} style={styles.code}>{part.slice(1, -1)}</Text>;
+            }
+            if (part.match(/\[(.*?)\]\((.*?)\)/)) {
+              const [, text, url] = part.match(/\[(.*?)\]\((.*?)\)/)!;
+              const isInternalLink = url.startsWith('#');
+              return isInternalLink ? (
+                <PdfLink key={i} src={url} style={styles.link}>{text}</PdfLink>
+              ) : (
+                <Text key={i} style={styles.link}>{text}</Text>
+              );
+            }
+            return part;
+          } catch (error) {
+            console.error('Error rendering inline content part:', error);
+            return part;
+          }
+        });
+      } catch (error) {
+        console.error('Error in renderInlineContent:', error);
+        return text;
+      }
     };
 
     const renderToken = (token: TokenType, index: number): React.ReactNode => {
@@ -204,9 +217,15 @@ export default function NotePage() {
         case 'heading':
           const headingLevel = `heading${token.depth}` as keyof typeof styles;
           const HeadingStyle = styles[headingLevel] || styles.heading1;
+          
+          // Handle numbered headings (e.g., "1. Executive Summary")
+          const headingText = token.text;
+          const sectionText = headingText.replace(/^\d+\.\s+/, '');  // Remove any leading numbers
+          const headingId = sectionText.toLowerCase().replace(/\s+/g, '-');
+          
           return (
-            <Text key={index} style={HeadingStyle}>
-              {renderInlineContent(token.text)}
+            <Text key={index} id={headingId} style={HeadingStyle}>
+              {renderInlineContent(headingText)}
             </Text>
           );
         
@@ -254,6 +273,34 @@ export default function NotePage() {
       }
     };
 
+    const renderContent = (content: string) => {
+      // Handle numbered headings (e.g., "## 1. Executive Summary")
+      if (content.match(/^##?\s+\d+\.\s+/)) {
+        const headingText = content.replace(/^(##?\s+)(\d+\.\s+)/, '$1');  // Remove the number but keep the ## or #
+        const sectionText = content.replace(/^##?\s+\d+\.\s+/, '');  // Get the text without ## and number
+        const headingId = sectionText.toLowerCase().replace(/\s+/g, '-');
+        
+        if (content.startsWith('# ')) {
+          return <Text id={headingId} style={styles.heading1}>{sectionText}</Text>;
+        } else {
+          return <Text id={headingId} style={styles.heading2}>{sectionText}</Text>;
+        }
+      }
+      
+      // Handle regular headings
+      if (content.startsWith('# ')) {
+        const headingText = content.slice(2);
+        const headingId = headingText.toLowerCase().replace(/\s+/g, '-');
+        return <Text id={headingId} style={styles.heading1}>{headingText}</Text>;
+      }
+      if (content.startsWith('## ')) {
+        const headingText = content.slice(3);
+        const headingId = headingText.toLowerCase().replace(/\s+/g, '-');
+        return <Text id={headingId} style={styles.heading2}>{headingText}</Text>;
+      }
+      return renderToken(marked.lexer(content)[0], 0);
+    };
+
     return (
       <Document>
         <Page size="A4" style={styles.page}>
@@ -284,6 +331,96 @@ export default function NotePage() {
       toast.error('Failed to export PDF');
     } finally {
       setExportingPdf(false);
+    }
+  };
+
+  const handleTestPdf = async () => {
+    try {
+      setExportingTestPdf(true);
+      const testContent = `# PDF Test Document
+
+## Table of Contents
+1. [Heading Test](#heading-test)
+2. [Text Formatting](#text-formatting)
+3. [Lists](#lists)
+
+## 1. Heading Test
+This section tests heading navigation.
+
+## 2. Text Formatting
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+Here are some text formatting examples:
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- \`inline code\` for technical terms
+
+## 3. Lists
+1. Ordered list item 1
+2. Ordered list item 2
+   - Nested bullet point
+   - Another nested point
+
+> This is a blockquote to test styling
+
+\`\`\`
+This is a code block
+to test code formatting
+\`\`\`
+`;
+
+      const blob = await pdf(<PDFDocument content={testContent} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'test-document.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating test PDF:', error);
+      toast.error('Failed to generate test PDF');
+    } finally {
+      setExportingTestPdf(false);
     }
   };
 
@@ -480,6 +617,20 @@ export default function NotePage() {
                   <span className="hidden sm:inline">
                     {exportingPdf ? 'Generating...' : 'PDF'}
                   </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTestPdf}
+                  disabled={exportingTestPdf}
+                  className="flex items-center gap-1"
+                >
+                  {exportingTestPdf ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Code className="h-4 w-4" />
+                  )}
+                  Test PDF
                 </Button>
               </div>
             </div>

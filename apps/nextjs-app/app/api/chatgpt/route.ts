@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 export interface ChatGPTTextDoc {
   id: string;
@@ -13,8 +12,6 @@ export interface ChatGPTTextDoc {
     shared_conversation_id?: string;
   };
 }
-
-import * as cheerio from "cheerio";
 import fs from "node:fs";
 import path from "node:path";
 import cfCheck from "@/utils/cfCheck";
@@ -361,7 +358,7 @@ export async function POST(request: Request) {
   console.log("remoteExecutablePath:", remoteExecutablePath);
 
   try {
-    let { url } = await request.json();
+    const { url } = await request.json();
 
     if (!url) {
       return NextResponse.json(
