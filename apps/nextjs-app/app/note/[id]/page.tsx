@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -12,9 +12,11 @@ import BackToTop from '@/components/BackToTop';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Copy, Share2, Loader2, Eye, Code, Edit2, Save } from "lucide-react";
+import { ArrowLeft, Copy, Share2, Loader2, Eye, Code, Edit2, Save, FileDown } from "lucide-react";
 import { useAuth } from '@/lib/auth-context';
 import { getNote, toggleNoteSharing, updateNote, type Note } from '@/lib/db';
+import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
+import { marked } from 'marked';
 
 export default function NotePage() {
   const params = useParams();
@@ -26,6 +28,8 @@ export default function NotePage() {
   const [viewMode, setViewMode] = useState<"preview" | "markdown" | "edit">("preview");
   const [editedContent, setEditedContent] = useState("");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -49,6 +53,7 @@ export default function NotePage() {
         }
 
         setNote(noteData);
+        setEditedContent(noteData.content);
       } catch (error) {
         console.error('Error fetching note:', error);
         setError('Failed to load note');
@@ -60,12 +65,234 @@ export default function NotePage() {
     fetchNote();
   }, [params.id, user, authLoading, router]);
 
+  // Create styles
+  const styles = StyleSheet.create({
+    page: {
+      padding: 50,
+      fontSize: 11,
+      fontFamily: 'Helvetica',
+    },
+    section: {
+      marginBottom: 10,
+    },
+    heading1: {
+      fontSize: 24,
+      marginBottom: 16,
+      fontWeight: 'bold',
+      paddingTop: 16,
+    },
+    heading2: {
+      fontSize: 20,
+      marginBottom: 12,
+      fontWeight: 'bold',
+      paddingTop: 12,
+    },
+    heading3: {
+      fontSize: 16,
+      marginBottom: 10,
+      fontWeight: 'bold',
+      paddingTop: 10,
+    },
+    paragraph: {
+      marginBottom: 10,
+      lineHeight: 1.6,
+    },
+    code: {
+      fontFamily: 'Courier',
+      backgroundColor: '#f6f8fa',
+      padding: 12,
+      marginVertical: 12,
+      fontSize: 10,
+    },
+    list: {
+      marginLeft: 24,
+      marginBottom: 12,
+      marginTop: 8,
+    },
+    listItem: {
+      marginBottom: 8,
+      paddingLeft: 12,
+      lineHeight: 1.4,
+    },
+    emphasis: {
+      fontStyle: 'italic',
+    },
+    strong: {
+      fontWeight: 'bold',
+    },
+    link: {
+      color: '#0366d6',
+      textDecoration: 'underline',
+    },
+    blockquote: {
+      marginLeft: 16,
+      paddingLeft: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: '#dfe2e5',
+      fontStyle: 'italic',
+      color: '#6a737d',
+    },
+    date: {
+      fontFamily: 'Times-Italic',
+      color: '#666666',
+      marginBottom: 16,
+      fontSize: 11,
+    },
+    hr: {
+      borderTopWidth: 1,
+      borderTopColor: '#dfe2e5',
+      marginVertical: 20,
+    },
+    datePrefix: {
+      fontWeight: 'bold',
+      color: '#24292e',
+    }
+  });
+
+  // PDF Document component
+  const PDFDocument = ({ content }: { content: string }) => {
+    type TokenType = ReturnType<typeof marked.lexer>[number];
+    
+    interface ListItem {
+      type: 'list_item';
+      raw: string;
+      task: boolean;
+      checked?: boolean;
+      loose: boolean;
+      text: string;
+      tokens: TokenType[];
+    }
+
+    const renderInlineContent = (text: string): React.ReactNode => {
+      // Special handling for "_Date: date_" pattern
+      const dateMatch = text.match(/^_Date:\s*(.*?)_$/);
+      if (dateMatch) {
+        return (
+          <Text style={styles.date}>
+            <Text style={styles.datePrefix}>Date: </Text>
+            {dateMatch[1]}
+          </Text>
+        );
+      }
+
+      // Handle inline styles
+      const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\)|_.*?_)/);
+      return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <Text key={i} style={styles.strong}>{part.slice(2, -2)}</Text>;
+        }
+        if (part.startsWith('*') && part.endsWith('*') || part.startsWith('_') && part.endsWith('_')) {
+          return <Text key={i} style={styles.emphasis}>{part.slice(1, -1)}</Text>;
+        }
+        if (part.startsWith('`') && part.endsWith('`')) {
+          return <Text key={i} style={styles.code}>{part.slice(1, -1)}</Text>;
+        }
+        if (part.match(/\[(.*?)\]\((.*?)\)/)) {
+          const [, text, url] = part.match(/\[(.*?)\]\((.*?)\)/)!;
+          return <Text key={i} style={styles.link}>{text}</Text>;
+        }
+        // Check for date pattern (e.g., "February 11, 2025")
+        if (part.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b/)) {
+          return <Text key={i} style={styles.date}>{part}</Text>;
+        }
+        return part;
+      });
+    };
+
+    const renderToken = (token: TokenType, index: number): React.ReactNode => {
+      switch (token.type) {
+        case 'heading':
+          const headingLevel = `heading${token.depth}` as keyof typeof styles;
+          const HeadingStyle = styles[headingLevel] || styles.heading1;
+          return (
+            <Text key={index} style={HeadingStyle}>
+              {renderInlineContent(token.text)}
+            </Text>
+          );
+        
+        case 'paragraph':
+          return (
+            <Text key={index} style={styles.paragraph}>
+              {renderInlineContent(token.text)}
+            </Text>
+          );
+        
+        case 'code':
+          return (
+            <View key={index} style={styles.code}>
+              <Text>{token.text}</Text>
+            </View>
+          );
+        
+        case 'list':
+          return (
+            <View key={index} style={styles.list}>
+              {(token.items as ListItem[]).map((item, i) => (
+                <Text key={i} style={styles.listItem}>
+                  {token.ordered ? `${i + 1}. ` : '• '}
+                  {renderInlineContent(item.text)}
+                </Text>
+              ))}
+            </View>
+          );
+
+        case 'hr':
+          return <View key={index} style={styles.hr} />;
+
+        case 'blockquote':
+          return (
+            <View key={index} style={styles.blockquote}>
+              <Text>{renderInlineContent(token.text)}</Text>
+            </View>
+          );
+        
+        default:
+          if ('text' in token) {
+            return renderInlineContent(token.text);
+          }
+          return null;
+      }
+    };
+
+    return (
+      <Document>
+        <Page size="A4" style={styles.page}>
+          <View>
+            {marked.lexer(content).map((token, index) => renderToken(token, index))}
+          </View>
+        </Page>
+      </Document>
+    );
+  };
+
+  const handleExportPdf = async () => {
+    if (!note?.content) return;
+    
+    try {
+      setExportingPdf(true);
+      const doc = <PDFDocument content={note.content} />;
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = note.title ? `${note.title}.pdf` : 'note.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('PDF downloaded successfully');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const fallbackCopyTextToClipboard = (text: string) => {
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.cssText = 'position: fixed; left: 0; top: 0; opacity: 0;';
     document.body.appendChild(textarea);
-    
+
     try {
       textarea.select();
       document.execCommand('copy');
@@ -80,7 +307,7 @@ export default function NotePage() {
 
   const copyToClipboard = async () => {
     if (!note) return;
-    
+
     try {
       await navigator.clipboard.writeText(note.content);
       toast.success('Copied to clipboard!');
@@ -96,7 +323,7 @@ export default function NotePage() {
     try {
       const { isPublic, shareId } = await toggleNoteSharing(note.id);
       setNote({ ...note, isPublic, shareId });
-      
+
       if (isPublic && shareId) {
         const url = `${window.location.origin}/shared/${shareId}`;
         setShareUrl(url);
@@ -113,7 +340,7 @@ export default function NotePage() {
 
   const copyShareUrl = async () => {
     if (!shareUrl) return;
-    
+
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(shareUrl);
@@ -242,6 +469,18 @@ export default function NotePage() {
                   <Share2 className="h-4 w-4" />
                   <span className="hidden sm:inline">{note.isPublic ? 'Unshare' : 'Share'}</span>
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPdf}
+                  disabled={exportingPdf}
+                  className="flex items-center gap-1"
+                >
+                  <FileDown className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {exportingPdf ? 'Generating...' : 'PDF'}
+                  </span>
+                </Button>
               </div>
             </div>
           </div>
@@ -287,7 +526,7 @@ export default function NotePage() {
             </div>
           ) : (
             <div className="prose max-w-none ">
-              <div className="bg-white p-4 sm:p-6 rounded-lg [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap [&_table]:border-collapse [&_table]:w-full [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_td]:border [&_td]:border-gray-300 [&_td]:p-2">
+              <div ref={contentRef} className="bg-white p-4 sm:p-6 rounded-lg [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap [&_table]:border-collapse [&_table]:w-full [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_td]:border [&_td]:border-gray-300 [&_td]:p-2">
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeKatex]}
