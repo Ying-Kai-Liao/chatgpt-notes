@@ -1,45 +1,80 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import BackToTop from '@/components/BackToTop';
+import 'katex/dist/katex.min.css';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Copy, Share2, Loader2, Eye, Code, Edit2, Save, FileDown } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Share2, 
+  Save, 
+  Trash2, 
+  Star, 
+  StarOff, 
+  Download, 
+  Eye, 
+  Code, 
+  Edit, 
+  Copy, 
+  ArrowUpToLine, 
+  MoreVertical 
+} from "lucide-react";
 import { useAuth } from '@/lib/auth-context';
-import { getNote, toggleNoteSharing, updateNote, type Note } from '@/lib/db';
-import { Document, Page, Text, View, Link as PdfLink, StyleSheet, pdf } from '@react-pdf/renderer';
+import {
+  getNote,
+  updateNote,
+  deleteNote,
+  toggleNoteShare,
+  toggleNoteFavorite,
+  Note,
+} from '@/lib/db';
+import toast from 'react-hot-toast';
+import { Document, Page, Text, View, Link as PdfLink, StyleSheet, pdf, Font } from '@react-pdf/renderer';
 import { marked } from 'marked';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
+// Register font for Chinese support
+Font.register({
+  family: 'Noto Sans TC',
+  src: 'https://fonts.gstatic.com/ea/notosanstc/v1/NotoSansTC-Regular.otf'
+});
+
+type ViewMode = 'edit' | 'preview' | 'markdown';
 
 export default function NotePage() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [note, setNote] = useState<Note | null>(null);
+  const [content, setContent] = useState('');
+  const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState<"preview" | "markdown" | "edit">("preview");
-  const [editedContent, setEditedContent] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportingTestPdf, setExportingTestPdf] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
-    if (authLoading) return;
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
 
-    if (!user) {
-      router.push('/');
-      return;
-    }
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
+  useEffect(() => {
     const fetchNote = async () => {
       try {
         const noteData = await getNote(params.id as string);
@@ -47,14 +82,16 @@ export default function NotePage() {
           setError('Note not found');
           return;
         }
-        
-        if (noteData.userId !== user.uid) {
+        if (noteData.userId !== user?.uid) {
           setError('You do not have permission to view this note');
           return;
         }
-
         setNote(noteData);
-        setEditedContent(noteData.content);
+        setContent(noteData.content);
+        setTitle(noteData.title);
+        if (noteData.isPublic && noteData.shareId) {
+          setShareUrl(`${window.location.origin}/shared/${noteData.shareId}`);
+        }
       } catch (error) {
         console.error('Error fetching note:', error);
         setError('Failed to load note');
@@ -63,15 +100,94 @@ export default function NotePage() {
       }
     };
 
-    fetchNote();
-  }, [params.id, user, authLoading, router]);
+    if (user) {
+      fetchNote();
+    }
+  }, [params.id, user]);
+
+  const handleSave = useCallback(async () => {
+    if (!note || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      await updateNote(note.id, content);
+      toast.success('Note saved');
+    } catch (error) {
+      console.error('Error saving note:', error);
+      toast.error('Failed to save note');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [note, content, isSaving]);
+
+  const handleDelete = useCallback(async () => {
+    if (!note) return;
+
+    const confirmed = window.confirm('Are you sure you want to delete this note?');
+    if (!confirmed) return;
+
+    try {
+      await deleteNote(note.id);
+      toast.success('Note deleted');
+      router.push('/');
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      toast.error('Failed to delete note');
+    }
+  }, [note, router]);
+
+  const handleShare = useCallback(async () => {
+    if (!note) return;
+
+    try {
+      const shareId = await toggleNoteShare(note.id);
+      setNote(prev => prev ? { ...prev, isPublic: !prev.isPublic, shareId: shareId || undefined } : null);
+
+      if (!note.isPublic && shareId) {
+        const url = `${window.location.origin}/shared/${shareId}`;
+        setShareUrl(url);
+        await navigator.clipboard.writeText(url);
+        toast.success('Share link copied to clipboard');
+      } else {
+        setShareUrl(null);
+        toast.success('Note is no longer shared');
+      }
+    } catch (error) {
+      console.error('Error sharing note:', error);
+      toast.error('Failed to share note');
+    }
+  }, [note]);
+
+  const handleToggleFavorite = useCallback(async () => {
+    if (!note) return;
+
+    try {
+      const newValue = !note.isFavorite;
+      await toggleNoteFavorite(note.id, newValue);
+      setNote(prev => prev ? { ...prev, isFavorite: newValue } : null);
+      toast.success(newValue ? 'Added to favorites' : 'Removed from favorites');
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite status');
+    }
+  }, [note]);
+
+  const handleCopyAll = useCallback((): void => {
+    if (!note?.content) return;
+    navigator.clipboard.writeText(note.content);
+    toast.success('Content copied to clipboard');
+  }, [note?.content]);
+
+  const scrollToTop = useCallback((): void => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   // Create styles
   const styles = StyleSheet.create({
     page: {
       padding: 50,
       fontSize: 11,
-      fontFamily: 'Helvetica',
+      fontFamily: 'Noto Sans TC',
     },
     section: {
       marginBottom: 10,
@@ -81,22 +197,34 @@ export default function NotePage() {
       marginBottom: 16,
       fontWeight: 'bold',
       paddingTop: 16,
+      fontFamily: 'Noto Sans TC',
     },
     heading2: {
       fontSize: 20,
       marginBottom: 12,
       fontWeight: 'bold',
       paddingTop: 12,
+      fontFamily: 'Noto Sans TC',
     },
     heading3: {
       fontSize: 16,
       marginBottom: 10,
       fontWeight: 'bold',
       paddingTop: 10,
+      fontFamily: 'Noto Sans TC',
     },
     paragraph: {
       marginBottom: 10,
-      lineHeight: 1.6,
+      lineHeight: 1.8,
+      fontFamily: 'Noto Sans TC',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    text: {
+      fontFamily: 'Noto Sans TC',
+    },
+    char: {
+      fontFamily: 'Noto Sans TC',
     },
     code: {
       fontFamily: 'Courier',
@@ -114,16 +242,20 @@ export default function NotePage() {
       marginBottom: 8,
       paddingLeft: 12,
       lineHeight: 1.4,
+      fontFamily: 'Noto Sans TC',
     },
     emphasis: {
       fontStyle: 'italic',
+      fontFamily: 'Helvetica',
     },
     strong: {
       fontWeight: 'bold',
+      fontFamily: 'Noto Sans TC',
     },
     link: {
       color: '#0366d6',
       textDecoration: 'underline',
+      fontFamily: 'Noto Sans TC',
     },
     blockquote: {
       marginLeft: 16,
@@ -132,6 +264,7 @@ export default function NotePage() {
       borderLeftColor: '#dfe2e5',
       fontStyle: 'italic',
       color: '#6a737d',
+      fontFamily: 'Noto Sans TC',
     },
     date: {
       fontFamily: 'Times-Italic',
@@ -147,7 +280,8 @@ export default function NotePage() {
     datePrefix: {
       fontWeight: 'bold',
       color: '#24292e',
-    }
+      fontFamily: 'Noto Sans TC',
+    },
   });
 
   // PDF Document component
@@ -166,46 +300,44 @@ export default function NotePage() {
 
     const renderInlineContent = (text: string): React.ReactNode => {
       try {
-        // Special handling for "_Date: date_" pattern
-        const dateMatch = text.match(/^_Date:\s*(.*?)_$/);
-        if (dateMatch) {
-          return (
-            <Text style={styles.date}>
-              <Text style={styles.datePrefix}>Date: </Text>
-              {dateMatch[1]}
-            </Text>
-          );
-        }
-
         // Handle inline styles
         const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\)|_.*?_)/);
         return parts.map((part, i) => {
-          try {
-            if (!part) return null;
-            if (part.startsWith('**') && part.endsWith('**')) {
-              return <Text key={i} style={styles.strong}>{part.slice(2, -2)}</Text>;
-            }
-            if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) {
-              return <Text key={i} style={styles.emphasis}>{part.slice(1, -1)}</Text>;
-            }
-            if (part.startsWith('`') && part.endsWith('`')) {
-              return <Text key={i} style={styles.code}>{part.slice(1, -1)}</Text>;
-            }
-            if (part.match(/\[(.*?)\]\((.*?)\)/)) {
-              const [, text, url] = part.match(/\[(.*?)\]\((.*?)\)/)!;
-              const isInternalLink = url.startsWith('#');
-              return isInternalLink ? (
-                <PdfLink key={i} src={url} style={styles.link}>{text}</PdfLink>
-              ) : (
-                <Text key={i} style={styles.link}>{text}</Text>
-              );
-            }
-            return part;
-          } catch (error) {
-            console.error('Error rendering inline content part:', error);
-            return part;
+          if (!part) return null;
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <Text key={i} style={styles.strong}>{part.slice(2, -2)}</Text>;
           }
-        });
+          if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) {
+            return <Text key={i} style={styles.emphasis}>{part.slice(1, -1)}</Text>;
+          }
+          if (part.startsWith('`') && part.endsWith('`')) {
+            return <Text key={i} style={styles.code}>{part.slice(1, -1)}</Text>;
+          }
+          if (part.match(/\[(.*?)\]\((.*?)\)/)) {
+            const [, text, url] = part.match(/\[(.*?)\]\((.*?)\)/)!;
+            const isInternalLink = url.startsWith('#');
+            return isInternalLink ? (
+              <PdfLink key={i} src={url} style={styles.link}>{text}</PdfLink>
+            ) : (
+              <Text key={i} style={styles.link}>{text}</Text>
+            );
+          }
+
+          // Split text into segments of Chinese characters and non-Chinese text
+          const segments = part.split(/([\\u4e00-\\u9fa5]+)/g).filter(Boolean);
+          return segments.map((segment, segIndex) => {
+            // Check if segment contains Chinese characters
+            if (/[\u4e00-\u9fa5]/.test(segment)) {
+              // Split Chinese characters
+              return [...segment].map((char, charIndex) => (
+                <Text key={`${i}-${segIndex}-${charIndex}`} style={styles.char}>{char}</Text>
+              ));
+            } else {
+              // Keep English text together
+              return <Text key={`${i}-${segIndex}`} style={styles.text}>{segment}</Text>;
+            }
+          });
+        }).filter(Boolean);
       } catch (error) {
         console.error('Error in renderInlineContent:', error);
         return text;
@@ -230,10 +362,27 @@ export default function NotePage() {
           );
         
         case 'paragraph':
+          // First check if it's a date pattern
+          // Special handling for "_Date: date_" pattern
+          const dateMatch = token.text.match(/^_Date:\s*(.+?)_$/);
+          if (dateMatch) {
+            return (
+              <View key={index}>
+                <Text style={styles.date}>
+                  <Text style={styles.datePrefix}>Date: </Text>
+                  <Text>{dateMatch[1]}</Text>
+                </Text>
+              </View>
+            );
+          }
+          
+          // Otherwise handle regular paragraph with Chinese text
           return (
-            <Text key={index} style={styles.paragraph}>
-              {renderInlineContent(token.text)}
-            </Text>
+            <View key={index} style={styles.paragraph}>
+              <Text style={styles.text}>
+                {renderInlineContent(token.text)}
+              </Text>
+            </View>
           );
         
         case 'code':
@@ -273,34 +422,6 @@ export default function NotePage() {
       }
     };
 
-    const renderContent = (content: string) => {
-      // Handle numbered headings (e.g., "## 1. Executive Summary")
-      if (content.match(/^##?\s+\d+\.\s+/)) {
-        const headingText = content.replace(/^(##?\s+)(\d+\.\s+)/, '$1');  // Remove the number but keep the ## or #
-        const sectionText = content.replace(/^##?\s+\d+\.\s+/, '');  // Get the text without ## and number
-        const headingId = sectionText.toLowerCase().replace(/\s+/g, '-');
-        
-        if (content.startsWith('# ')) {
-          return <Text id={headingId} style={styles.heading1}>{sectionText}</Text>;
-        } else {
-          return <Text id={headingId} style={styles.heading2}>{sectionText}</Text>;
-        }
-      }
-      
-      // Handle regular headings
-      if (content.startsWith('# ')) {
-        const headingText = content.slice(2);
-        const headingId = headingText.toLowerCase().replace(/\s+/g, '-');
-        return <Text id={headingId} style={styles.heading1}>{headingText}</Text>;
-      }
-      if (content.startsWith('## ')) {
-        const headingText = content.slice(3);
-        const headingId = headingText.toLowerCase().replace(/\s+/g, '-');
-        return <Text id={headingId} style={styles.heading2}>{headingText}</Text>;
-      }
-      return renderToken(marked.lexer(content)[0], 0);
-    };
-
     return (
       <Document>
         <Page size="A4" style={styles.page}>
@@ -334,186 +455,10 @@ export default function NotePage() {
     }
   };
 
-  const handleTestPdf = async () => {
-    try {
-      setExportingTestPdf(true);
-      const testContent = `# PDF Test Document
-
-## Table of Contents
-1. [Heading Test](#heading-test)
-2. [Text Formatting](#text-formatting)
-3. [Lists](#lists)
-
-## 1. Heading Test
-This section tests heading navigation.
-
-## 2. Text Formatting
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-Here are some text formatting examples:
-- **Bold text** for emphasis
-- *Italic text* for subtle emphasis
-- \`inline code\` for technical terms
-
-## 3. Lists
-1. Ordered list item 1
-2. Ordered list item 2
-   - Nested bullet point
-   - Another nested point
-
-> This is a blockquote to test styling
-
-\`\`\`
-This is a code block
-to test code formatting
-\`\`\`
-`;
-
-      const blob = await pdf(<PDFDocument content={testContent} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'test-document.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error generating test PDF:', error);
-      toast.error('Failed to generate test PDF');
-    } finally {
-      setExportingTestPdf(false);
-    }
-  };
-
-  const fallbackCopyTextToClipboard = (text: string) => {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.cssText = 'position: fixed; left: 0; top: 0; opacity: 0;';
-    document.body.appendChild(textarea);
-
-    try {
-      textarea.select();
-      document.execCommand('copy');
-      toast.success('Share link copied to clipboard!');
-    } catch (err) {
-      console.error('Fallback copy failed:', err);
-      toast.error('Failed to copy to clipboard');
-    } finally {
-      document.body.removeChild(textarea);
-    }
-  };
-
-  const copyToClipboard = async () => {
-    if (!note) return;
-
-    try {
-      await navigator.clipboard.writeText(note.content);
-      toast.success('Copied to clipboard!');
-    } catch (error) {
-      console.error('Failed to copy:', error);
-      toast.error('Failed to copy to clipboard');
-    }
-  };
-
-  const toggleSharing = async () => {
-    if (!note) return;
-
-    try {
-      const { isPublic, shareId } = await toggleNoteSharing(note.id);
-      setNote({ ...note, isPublic, shareId });
-
-      if (isPublic && shareId) {
-        const url = `${window.location.origin}/shared/${shareId}`;
-        setShareUrl(url);
-        toast.success('Note is now shared');
-      } else {
-        setShareUrl(null);
-        toast.success('Note is no longer shared');
-      }
-    } catch (error) {
-      console.error('Error toggling share:', error);
-      toast.error('Failed to toggle sharing');
-    }
-  };
-
-  const copyShareUrl = async () => {
-    if (!shareUrl) return;
-
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success('Share link copied to clipboard!');
-      } else {
-        fallbackCopyTextToClipboard(shareUrl);
-      }
-    } catch (err) {
-      console.error('Clipboard error:', err);
-      fallbackCopyTextToClipboard(shareUrl);
-    }
-  };
-
-  const handleEdit = () => {
-    setEditedContent(note?.content || "");
-    setViewMode("edit");
-  };
-
-  const handleSaveEdit = async () => {
-    if (!note) return;
-
-    try {
-      await updateNote(note.id, editedContent);
-      setNote({ ...note, content: editedContent });
-      setViewMode("preview");
-      toast.success("Changes saved successfully");
-    } catch (error) {
-      console.error('Error saving note:', error);
-      toast.error('Failed to save changes');
-    }
-  };
-
-  if (loading || authLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
       </div>
     );
   }
@@ -525,12 +470,12 @@ to test code formatting
           <CardContent className="p-6">
             <div className="text-center space-y-4">
               <p className="text-red-500">{error}</p>
-              <Link href="/">
-                <Button variant="outline" className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Home
-                </Button>
-              </Link>
+              <Button asChild variant="outline">
+                <Link href="/">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Back to Home</span>
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -542,151 +487,228 @@ to test code formatting
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <BackToTop />
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader className="flex flex-col space-y-4 border-b">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
-            <div className="flex flex-row sm:items-center gap-4 min-w-0 max-w-full sm:max-w-[60%] sm:min-w-0">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="shrink-0">
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold truncate min-w-0 sm:hidden" title={note.title || 'Untitled Note'}>
-                {note.title || 'Untitled Note'}
-              </h1>
-            </div>
-
-            <div className="flex flex-row items-center justify-between gap-2 min-w-full sm:min-w-[93%]">
-              <div className="bg-gray-100 rounded-lg p-1 flex flex-wrap gap-1 sm:flex-nowrap">
-                <Button
-                  variant={viewMode === "preview" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("preview")}
-                  className="flex items-center gap-1"
-                >
-                  <Eye className="h-4 w-4" />
-                  <span className="hidden sm:inline">Preview</span>
-                </Button>
-                <Button
-                  variant={viewMode === "markdown" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("markdown")}
-                  className="flex items-center gap-1"
-                >
-                  <Code className="h-4 w-4" />
-                  <span className="hidden sm:inline">Markdown</span>
-                </Button>
-                <Button
-                  variant={viewMode === "edit" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={handleEdit}
-                  className="flex items-center gap-1"
-                >
-                  <Edit2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Edit</span>
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={copyToClipboard}
-                  className="flex items-center gap-1"
-                >
-                  <Copy className="h-4 w-4" />
-                  <span className="hidden sm:inline">Copy</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleSharing}
-                  className="flex items-center gap-1"
-                >
-                  <Share2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">{note.isPublic ? 'Unshare' : 'Share'}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportPdf}
-                  disabled={exportingPdf}
-                  className="flex items-center gap-1"
-                >
-                  <FileDown className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {exportingPdf ? 'Generating...' : 'PDF'}
-                  </span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleTestPdf}
-                  disabled={exportingTestPdf}
-                  className="flex items-center gap-1"
-                >
-                  {exportingTestPdf ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Code className="h-4 w-4" />
-                  )}
-                  Test PDF
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {shareUrl && (
-            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 truncate flex-1">
-                {shareUrl}
-              </p>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <Button asChild variant="outline">
+            <Link href="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Back to Home</span>
+            </Link>
+          </Button>
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 bg-secondary rounded-lg p-1">
               <Button
-                variant="ghost"
+                variant={viewMode === "edit" ? "secondary" : "ghost"}
                 size="sm"
-                onClick={copyShareUrl}
-                className="flex items-center gap-1 shrink-0"
+                onClick={() => setViewMode("edit")}
+                className="flex items-center gap-1"
               >
-                <Copy className="h-4 w-4" />
-                <span className="hidden sm:inline">Copy</span>
+                <Edit className="h-4 w-4" />
+                <span className="hidden sm:inline">Edit</span>
+              </Button>
+              <Button
+                variant={viewMode === "preview" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("preview")}
+                className="flex items-center gap-1"
+              >
+                <Eye className="h-4 w-4" />
+                <span className="hidden sm:inline">Preview</span>
+              </Button>
+              <Button
+                variant={viewMode === "markdown" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("markdown")}
+                className="flex items-center gap-1"
+              >
+                <Code className="h-4 w-4" />
+                <span className="hidden sm:inline">Markdown</span>
               </Button>
             </div>
-          )}
-        </CardHeader>
-        <CardContent className="p-2 sm:p-6">
-          {viewMode === "edit" ? (
-            <div className="space-y-4">
-              <Textarea
-                value={editedContent}
-                onChange={(e) => setEditedContent(e.target.value)}
-                className="font-mono min-h-[400px] p-4"
-                placeholder="Edit your markdown here..."
-              />
-              <div className="flex justify-end">
-                <Button onClick={handleSaveEdit} className="flex items-center gap-1">
-                  <Save className="h-4 w-4" />
-                  Save Changes
+
+            {/* Desktop buttons */}
+            <div className="hidden sm:flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleExportPdf}
+                disabled={exportingPdf}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleShare}
+                className={note.isPublic ? 'text-green-500' : ''}
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleToggleFavorite}
+                className={note.isFavorite ? 'text-yellow-500' : ''}
+              >
+                {note.isFavorite ? (
+                  <Star className="h-4 w-4 fill-current" />
+                ) : (
+                  <Star className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyAll}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleDelete}
+                className="text-red-500"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Mobile dropdown */}
+            <div className="sm:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportPdf} disabled={exportingPdf}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleShare}>
+                    <Share2 className={`h-4 w-4 mr-2 ${note.isPublic ? 'text-green-500' : ''}`} />
+                    {note.isPublic ? 'Unshare' : 'Share'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleToggleFavorite}>
+                    <Star className={`h-4 w-4 mr-2 ${note.isFavorite ? 'text-yellow-500 fill-current' : ''}`} />
+                    {note.isFavorite ? 'Unfavorite' : 'Favorite'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCopyAll}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy All
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDelete} className="text-red-500">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+
+        {shareUrl && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Share Link</p>
+                  <code 
+                    className="block bg-muted p-2 rounded text-sm break-all cursor-pointer overflow-hidden text-ellipsis"
+                    onClick={(e) => {
+                      const range = document.createRange();
+                      range.selectNodeContents(e.currentTarget);
+                      const selection = window.getSelection();
+                      if (selection) {
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                      }
+                    }}
+                  >
+                    {shareUrl}
+                  </code>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareUrl);
+                    toast.success('Share link copied to clipboard');
+                  }}
+                >
+                  Copy
                 </Button>
               </div>
-            </div>
-          ) : viewMode === "markdown" ? (
-            <div className="prose max-w-none">
-              <div className="whitespace-pre-wrap font-mono bg-gray-100 p-4 rounded-lg">
-                {note.content}
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardContent className="p-6" id="note-content">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-2xl font-bold border-none focus:ring-0 px-0"
+              placeholder="Untitled Note"
+            />
+            {viewMode === 'edit' && (
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                className="min-h-[50vh] border-none focus:ring-0 px-0 font-mono mt-4"
+                placeholder="Start writing..."
+              />
+            )}
+            {viewMode === 'preview' && (
+              <div className="prose max-w-none">
+                <div className="bg-background p-4 sm:p-6 rounded-lg [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap [&_table]:border-collapse [&_table]:w-full [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_h1]:break-words [&_h2]:break-words [&_h3]:break-words [&_h4]:break-words [&_h5]:break-words [&_h6]:break-words [&_p]:break-words">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {content}
+                  </ReactMarkdown>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="prose max-w-none ">
-              <div ref={contentRef} className="bg-white p-4 sm:p-6 rounded-lg [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap [&_table]:border-collapse [&_table]:w-full [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_td]:border [&_td]:border-gray-300 [&_td]:p-2">
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                >{note.content}</ReactMarkdown>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+            {viewMode === 'markdown' && (
+              <pre className="bg-gray-100 p-4 rounded-lg overflow-auto mt-4">
+                <code>{content}</code>
+              </pre>
+            )}
+          </CardContent>
+        </Card>
+
+        {viewMode === 'edit' && (
+          <div className="flex justify-end">
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+      {showScrollTop && (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={scrollToTop}
+          className="fixed bottom-4 right-4 z-50 bg-background shadow-md"
+        >
+          <ArrowUpToLine className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }

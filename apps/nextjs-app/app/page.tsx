@@ -5,12 +5,17 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardFooter,
+} from "@/components/ui/card";
 import { Loader2, LinkIcon, Eye, Code, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createNote } from "@/lib/db";
 import { AuthForm } from "@/components/auth-form";
-import { NoteList } from "@/components/NoteList";
+import NoteList from "@/components/NoteList";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { FlutedGlass } from "@/components/FlutedGlass";
@@ -45,23 +50,23 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/chatgpt', {
-        method: 'POST',
+      const response = await fetch("/api/chatgpt", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ url: link }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to convert conversation');
+        throw new Error(error.error || "Failed to convert conversation");
       }
 
       const data = await response.json();
       const markdown = data.content;
       setConvertedContent(markdown);
-      
+
       // If user is logged in, save the note immediately
       if (user) {
         const noteId = await createNote(user.uid, markdown);
@@ -69,7 +74,7 @@ export default function Home() {
       }
     } catch (error: unknown) {
       console.error("Error converting conversation:", error);
-      toast.error((error as Error).message || 'Failed to convert conversation');
+      toast.error((error as Error).message || "Failed to convert conversation");
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +82,7 @@ export default function Home() {
 
   const handleSave = async () => {
     if (!convertedContent || !user) return;
-    
+
     try {
       const noteId = await createNote(user.uid, convertedContent);
       router.push(`/note/${noteId}`);
@@ -89,14 +94,18 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-cyan-600 to-blue-200">
-      <div className={`${convertedContent ? 'relative top-12' : 'fixed top-24'} left-0 right-0 z-10 bg-none`}>
+    <div className="min-h-screen w-full bg-gradient-to-br from-blue-200 to-red-300">
+      <div
+        className={`${
+          convertedContent ? "relative top-12" : "fixed top-24"
+        } left-0 right-0 z-10 bg-none`}
+      >
         <div className="container mx-auto px-4">
           <div className="h-[220px]">
             <FlutedGlass type="fluted">
               <Card className="w-full h-full bg-glassy">
                 <CardHeader>
-                <h2 className="text-2xl font-bold text-center text-white/80">
+                  <h2 className="text-2xl font-bold text-center text-white/80">
                     Convert LLM Chat / Canva to Markdown
                   </h2>
                 </CardHeader>
@@ -131,31 +140,36 @@ export default function Home() {
                         {isLoading ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            <span className="hidden sm:inline">Converting...</span>
+                            <span className="hidden sm:inline">
+                              Converting...
+                            </span>
                             <span className="sm:hidden">Loading...</span>
                           </>
                         ) : (
                           <>
                             <LinkIcon className="mr-2 h-4 w-4" />
-                            <span className="hidden sm:inline">Convert Chat</span>
+                            <span className="hidden sm:inline">
+                              Convert Chat
+                            </span>
                             <span className="sm:hidden">Convert</span>
                           </>
                         )}
                       </Button>
                       {user && (
                         <Button
-                          onClick={() => router.push('/new')}
+                          onClick={() => router.push("/new")}
                           className="flex-1"
                           variant="secondary"
                         >
                           <Plus className="mr-2 h-4 w-4" />
-                          <span className="hidden sm:inline">Create New Note From Scratch</span>
+                          <span className="hidden sm:inline">
+                            Create New Note From Scratch
+                          </span>
                           <span className="sm:hidden">New</span>
                         </Button>
                       )}
                     </div>
                   </form>
-                  
                 </CardContent>
               </Card>
             </FlutedGlass>
@@ -165,7 +179,12 @@ export default function Home() {
 
       <div className="container mx-auto px-4 pt-72 pb-20">
         {convertedContent && (
-          <div className="transition-all duration-300" style={{ height: contentHeight ? `${contentHeight + 120}px` : 'auto' }}>
+          <div
+            className="transition-all duration-300"
+            style={{
+              height: contentHeight ? `${contentHeight + 120}px` : "auto",
+            }}
+          >
             <FlutedGlass type="cross">
               <Card className="w-full h-full bg-white/40">
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -182,7 +201,9 @@ export default function Home() {
                         Preview
                       </Button>
                       <Button
-                        variant={viewMode === "markdown" ? "secondary" : "ghost"}
+                        variant={
+                          viewMode === "markdown" ? "secondary" : "ghost"
+                        }
                         size="sm"
                         onClick={() => setViewMode("markdown")}
                         className="flex items-center gap-1"

@@ -32,8 +32,8 @@ export async function generateMetadata(
       title,
       description,
       type: 'article',
-      publishedTime: note.createdAt.toISOString(),
-      modifiedTime: note.updatedAt.toISOString(),
+      publishedTime: note.createdAt.toDate().toISOString(),
+      modifiedTime: note.updatedAt.toDate().toISOString(),
       images: Array.isArray(previousImages) ? previousImages : [previousImages],
     },
     twitter: {

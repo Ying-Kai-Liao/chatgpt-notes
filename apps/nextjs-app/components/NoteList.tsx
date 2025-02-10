@@ -1,117 +1,155 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2, Trash2 } from "lucide-react";
-import { getUserNotes, deleteNote, type Note } from "@/lib/db";
-import { useAuth } from "@/lib/auth-context";
-import toast from "react-hot-toast";
+import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@/lib/auth-context';
+import { getUserNotesWithWorkspaces, type WorkspaceNotesGroup, toggleNoteFavorite, toggleNoteShare } from '@/lib/db';
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
+import NoteItem from './NoteItem';
+import { Button } from './ui/button';
+import toast from 'react-hot-toast';
+import WorkspaceSelectDialog from './WorkspaceSelectDialog';
+import ManageWorkspacesDialog from './ManageWorkspacesDialog';
 
-export function NoteList({ className }: { className?: string }) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function NoteList() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [notes, setNotes] = useState<WorkspaceNotesGroup[]>([]);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [showWorkspaceDialog, setShowWorkspaceDialog] = useState(false);
+  const [showManageDialog, setShowManageDialog] = useState(false);
 
-  const fetchNotes = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
+  const fetchNotesAndWorkspaces = useCallback(async () => {
+    if (!user) return;
     try {
-      const userNotes = await getUserNotes(user.uid);
-      // Sort notes by creation date, newest first
-      userNotes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      setNotes(userNotes);
+      setLoading(true);
+      const notesData = await getUserNotesWithWorkspaces(user.uid);
+      setNotes(notesData);
     } catch (error) {
-      console.error("Error fetching notes:", error);
-      toast.error("Failed to load notes");
+      console.error('Error fetching notes:', error);
+      toast.error('Failed to load notes');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-      fetchNotes();
   }, [user]);
 
-  const handleDelete = async (e: React.MouseEvent, noteId: string) => {
-    e.preventDefault(); // Prevent navigation
-    if (!confirm("Are you sure you want to delete this note?")) return;
+  useEffect(() => {
+    fetchNotesAndWorkspaces();
+  }, [fetchNotesAndWorkspaces]);
 
+  const handleAddToWorkspace = (noteId: string) => {
+    setSelectedNoteId(noteId);
+    setShowWorkspaceDialog(true);
+  };
+
+  const handleToggleFavorite = async (noteId: string, isFavorite: boolean) => {
     try {
-      await deleteNote(noteId);
-      toast.success("Note deleted successfully");
-      // Refresh the notes list
-      fetchNotes();
+      await toggleNoteFavorite(noteId, isFavorite);
+      toast.success(!isFavorite ? 'Removed from favorites' : 'Added to favorites');
+      fetchNotesAndWorkspaces();
     } catch (error) {
-      console.error("Error deleting note:", error);
-      toast.error("Failed to delete note");
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite status');
     }
+  };
+
+  const handleToggleShare = async (noteId: string, isShared: boolean) => {
+    try {
+      const shareId = await toggleNoteShare(noteId);
+      if (shareId) {
+        const shareUrl = `${window.location.origin}/shared/${shareId}`;
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Share link copied to clipboard');
+      } else {
+        toast.success('Note is now private');
+      }
+      fetchNotesAndWorkspaces();
+    } catch (error) {
+      console.error('Error toggling share:', error);
+      toast.error('Failed to update share status');
+    }
+  };
+
+  const handleWorkspaceDialogClose = () => {
+    setShowWorkspaceDialog(false);
+    setSelectedNoteId(null);
+    fetchNotesAndWorkspaces();
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
   if (!user) {
-    return null;
-  }
-
-  if (notes.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-center text-gray-500">
-            No notes yet. Convert your first ChatGPT conversation!
-          </p>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8">
+        <p>Please sign in to view your notes</p>
+      </div>
     );
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      <h2 className="text-xl text-white/80 font-semibold mb-4">Your Notes</h2>
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-        {notes.map((note) => (
-          <div key={note.id} className="group relative">
-            <Link href={`/note/${note.id}`}>
-              <Card className="h-full transition-shadow hover:shadow-md">
-                <CardHeader className="p-4 space-y-1">
-                  <h3
-                    className="font-medium text-base sm:text-lg truncate"
-                    title={note.title}
-                  >
-                    {note.title || 'Untitled Note'}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    {new Date(note.createdAt).toLocaleDateString()}
-                  </p>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">
-                    {note.content}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => handleDelete(e, note.id)}
-            >
-              <Trash2 className="h-4 w-4" />
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold">My Notes</h1>
+          <div className="flex items-center space-x-2">
+            <Button onClick={() => setShowManageDialog(true)} variant="outline">
+              Manage Workspaces
+            </Button>
+            <Button asChild>
+              <Link href="/note/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New Note
+              </Link>
             </Button>
           </div>
-        ))}
+        </div>
+
+        <div className="space-y-8">
+          {notes.map((group) => (
+            <div key={group.workspace.id ?? 'root'} className="space-y-4">
+              <h2 className="text-lg font-semibold">
+                {group.workspace.name}
+                <span className="text-sm font-normal text-gray-500 ml-2">
+                  ({group.notes.length} {group.notes.length === 1 ? 'note' : 'notes'})
+                </span>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.notes.map((note) => (
+                  <NoteItem 
+                    key={note.id} 
+                    note={note}
+                    onDelete={fetchNotesAndWorkspaces}
+                    onToggleFavorite={(noteId, isFavorite) => handleToggleFavorite(noteId, isFavorite)}
+                    onAddToWorkspace={handleAddToWorkspace}
+                    onToggleShare={handleToggleShare}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+          {selectedNoteId && (
+            <WorkspaceSelectDialog
+              open={showWorkspaceDialog}
+              onOpenChange={(open) => !open && handleWorkspaceDialogClose()}
+              noteId={selectedNoteId}
+              onSuccess={fetchNotesAndWorkspaces}
+            />
+          )}
+
+          <ManageWorkspacesDialog
+            open={showManageDialog}
+            onOpenChange={setShowManageDialog}
+            onSuccess={fetchNotesAndWorkspaces}
+          />
       </div>
     </div>
   );
