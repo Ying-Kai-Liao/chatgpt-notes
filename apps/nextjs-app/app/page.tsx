@@ -101,7 +101,7 @@ export default function Home() {
         } left-0 right-0 z-10 bg-none`}
       >
         <div className="container mx-auto px-4">
-          <div className="h-[220px]">
+          <div className="h-[270px] sm:h-[220px]">
             <FlutedGlass type="fluted">
               <Card className="w-full h-full bg-glassy">
                 <CardHeader>

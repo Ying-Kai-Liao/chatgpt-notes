@@ -102,12 +102,12 @@ export default function NoteList() {
             <Button onClick={() => setShowManageDialog(true)} variant="outline">
               Manage Workspaces
             </Button>
-            <Button asChild>
+            {/* <Button asChild>
               <Link href="/note/new">
                 <Plus className="mr-2 h-4 w-4" />
                 New Note
               </Link>
-            </Button>
+            </Button> */}
           </div>
         </div>
 
