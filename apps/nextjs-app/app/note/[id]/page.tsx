@@ -18,7 +18,6 @@ import {
   Save, 
   Trash2, 
   Star, 
-  StarOff, 
   Download, 
   Eye, 
   Code, 
@@ -40,6 +39,7 @@ import toast from 'react-hot-toast';
 import { Document, Page, Text, View, Link as PdfLink, StyleSheet, pdf, Font } from '@react-pdf/renderer';
 import { marked } from 'marked';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import MermaidRenderer from '../../../components/MermaidRenderer';
 
 // Register font for Chinese support
 Font.register({
@@ -62,7 +62,6 @@ export default function NotePage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -663,10 +662,29 @@ export default function NotePage() {
             )}
             {viewMode === 'preview' && (
               <div className="prose max-w-none">
-                <div className="bg-background p-4 sm:p-6 rounded-lg [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap [&_table]:border-collapse [&_table]:w-full [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_h1]:break-words [&_h2]:break-words [&_h3]:break-words [&_h4]:break-words [&_h5]:break-words [&_h6]:break-words [&_p]:break-words">
-                  <ReactMarkdown 
+                <div className="bg-background p-6 sm:p-8 rounded-lg space-y-4 [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap [&_table]:border-collapse [&_table]:w-full [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_h1]:break-words [&_h2]:break-words [&_h3]:break-words [&_h4]:break-words [&_h5]:break-words [&_h6]:break-words [&_p]:break-words">
+                  <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeKatex]}
+                    components={{
+                      code({ node, className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        const isInline = !node?.position?.start.line;
+                        if (!isInline && match?.[1] === 'mermaid') {
+                          // Clean up the mermaid diagram text
+                          const diagramText = String(children)
+                            .replace(/\n$/, '')  // Remove trailing newline
+                            .trim();             // Remove extra whitespace
+                          
+                          return <MermaidRenderer chart={diagramText} />;
+                        }
+                        return (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      }
+                    }}
                   >
                     {content}
                   </ReactMarkdown>
