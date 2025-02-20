@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Font, Link as PdfLink } from '@react-pdf/renderer';
-import { marked } from 'marked';
+import { marked, Tokens } from 'marked';
 
 // Register font for Chinese support
 Font.register({
@@ -160,14 +160,15 @@ function renderInlineContent(text: string): React.ReactNode {
   }
 }
 
-function renderToken(token: marked.Token, index: number): React.ReactNode {
+function renderToken(token: Tokens.Token, index: number): React.ReactNode {
   switch (token.type) {
-    case 'heading':
-      const headingLevel = `heading${token.depth}` as keyof typeof styles;
+    case 'heading': {
+      const headingToken = token as Tokens.Heading;
+      const headingLevel = `heading${headingToken.depth}` as keyof typeof styles;
       const HeadingStyle = styles[headingLevel] || styles.heading1;
       
       // Handle numbered headings (e.g., "1. Executive Summary")
-      const headingText = token.text;
+      const headingText = headingToken.text;
       const sectionText = headingText.replace(/^\d+\.\s+/, '');  // Remove any leading numbers
       const headingId = sectionText.toLowerCase().replace(/\s+/g, '-');
       
@@ -176,10 +177,12 @@ function renderToken(token: marked.Token, index: number): React.ReactNode {
           {renderInlineContent(headingText)}
         </Text>
       );
-    
-    case 'paragraph':
-      // Special handling for date pattern
-      const dateMatch = token.text.match(/^_Date:\s+(.+)_$/);
+    }
+
+    case 'paragraph': {
+      const paragraphToken = token as Tokens.Paragraph;
+      // Special handling for "_Date: date_" pattern
+      const dateMatch = paragraphToken.text.match(/^_Date:\s+(.+)_$/);
       if (dateMatch) {
         return (
           <View key={index} style={styles.section}>
@@ -191,47 +194,55 @@ function renderToken(token: marked.Token, index: number): React.ReactNode {
         );
       }
       
+      // Otherwise handle regular paragraph
       return (
         <View key={index} style={styles.section}>
           <Text style={styles.paragraph}>
-            {renderInlineContent(token.text)}
+            {renderInlineContent(paragraphToken.text)}
           </Text>
         </View>
       );
-    
-    case 'code':
+    }
+
+    case 'code': {
+      const codeToken = token as Tokens.Code;
       return (
         <View key={index} style={styles.section}>
-          <Text style={styles.code}>{token.text}</Text>
+          <Text style={styles.code}>{codeToken.text}</Text>
         </View>
       );
-    
-    case 'blockquote':
+    }
+
+    case 'blockquote': {
+      const blockquoteToken = token as Tokens.Blockquote;
       return (
         <View key={index} style={styles.section}>
           <Text style={styles.blockquote}>
-            {renderInlineContent(token.text)}
+            {renderInlineContent(blockquoteToken.text)}
           </Text>
         </View>
       );
-    
-    case 'list':
+    }
+
+    case 'list': {
+      const listToken = token as Tokens.List;
       return (
         <View key={index} style={styles.list}>
-          {(token.items as marked.Tokens.ListItem[]).map((item, i) => (
+          {(listToken.items as Tokens.ListItem[]).map((item, i) => (
             <View key={i} style={styles.listItem}>
               <Text>
-                {token.ordered ? `${i + 1}. ` : '• '}
+                {listToken.ordered ? `${i + 1}. ` : '• '}
                 {renderInlineContent(item.text)}
               </Text>
             </View>
           ))}
         </View>
       );
-    
+    }
+
     case 'hr':
       return <View key={index} style={styles.hr} />;
-    
+
     default:
       return null;
   }

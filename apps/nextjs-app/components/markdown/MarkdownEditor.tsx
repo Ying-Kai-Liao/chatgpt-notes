@@ -20,12 +20,7 @@ interface MarkdownEditorProps {
   onViewModeChange?: (mode: ViewMode) => void;
 }
 
-export const MarkdownEditor = memo(function MarkdownEditor({ 
-  content, 
-  onChange, 
-  onBlur,
-  viewMode 
-}: MarkdownEditorProps) {
+export function MarkdownEditor({ content, onChange, onBlur, viewMode }: MarkdownEditorProps) {
   const components: Components = {
     pre({ children }) {
       return (
@@ -36,7 +31,7 @@ export const MarkdownEditor = memo(function MarkdownEditor({
           <Button
             variant="outline"
             size="sm"
-            className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700"
+            className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:border-zinc-700"
             onClick={() => {
               const content = children?.toString() || '';
               navigator.clipboard.writeText(content);
@@ -51,13 +46,11 @@ export const MarkdownEditor = memo(function MarkdownEditor({
     code({ className, children }) {
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
-      
       if (language === 'mermaid') {
         return <MermaidRenderer chart={String(children).replace(/\n$/, '')} />;
       }
-      
       return (
-        <code className={`${className} bg-zinc-100 dark:bg-zinc-800 rounded px-1 py-0.5`}>
+        <code className={`${className} bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-200 rounded px-1 py-0.5`}>
           {children}
         </code>
       );
@@ -65,19 +58,19 @@ export const MarkdownEditor = memo(function MarkdownEditor({
   };
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="w-full">
       {viewMode === 'edit' && (
         <Textarea
           value={content}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
-          className="min-h-[50vh] border-none focus:ring-0 px-0 font-mono mt-4"
-          placeholder="Start writing..."
+          className="min-h-[500px] font-mono text-base bg-background resize-none border-none focus-visible:ring-0 p-0"
+          placeholder="Write your note here..."
         />
       )}
       {viewMode === 'preview' && (
-        <div className="prose prose-zinc max-w-none dark:prose-invert">
-          <div className="bg-background p-6 sm:p-8 rounded-lg space-y-4 [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap [&_table]:border-collapse [&_table]:w-full [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_h1]:break-words [&_h2]:break-words [&_h3]:break-words [&_h4]:break-words [&_h5]:break-words [&_h6]:break-words [&_p]:break-words">
+        <div className="prose prose-zinc max-w-none">
+          <div className="bg-background p-6 sm:p-8 rounded-lg space-y-4 [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words [&_code]:whitespace-pre-wrap [&_table]:border-collapse [&_table]:w-full [&_th]:border [&_th]:border-gray-300 dark:border-gray-700 [&_th]:p-2 [&_td]:border [&_td]:border-gray-300 dark:border-gray-700 [&_td]:p-2 [&_h1]:break-words [&_h2]:break-words [&_h3]:break-words [&_h4]:break-words [&_h5]:break-words [&_h6]:break-words [&_p]:break-words">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
@@ -89,10 +82,10 @@ export const MarkdownEditor = memo(function MarkdownEditor({
         </div>
       )}
       {viewMode === 'markdown' && (
-        <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto mt-4">
+        <pre className="bg-gray-100 dark:bg-gray-800 dark:text-zinc-200 p-4 rounded-lg overflow-auto mt-4">
           <code>{content}</code>
         </pre>
       )}
     </div>
   );
-});
+}
