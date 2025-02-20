@@ -1,3 +1,4 @@
+import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Font, Link as PdfLink } from '@react-pdf/renderer';
 import { marked, Tokens } from 'marked';
 
@@ -114,6 +115,8 @@ interface PDFDocumentProps {
   content: string;
 }
 
+type TokenType = ReturnType<typeof marked.lexer>[number];
+
 function renderInlineContent(text: string): React.ReactNode {
   try {
     // Handle inline styles
@@ -160,15 +163,14 @@ function renderInlineContent(text: string): React.ReactNode {
   }
 }
 
-function renderToken(token: Tokens.Token, index: number): React.ReactNode {
+function renderToken(token: TokenType, index: number): React.ReactNode {
   switch (token.type) {
     case 'heading': {
-      const headingToken = token as Tokens.Heading;
-      const headingLevel = `heading${headingToken.depth}` as keyof typeof styles;
+      const headingLevel = `heading${token.depth}` as keyof typeof styles;
       const HeadingStyle = styles[headingLevel] || styles.heading1;
       
       // Handle numbered headings (e.g., "1. Executive Summary")
-      const headingText = headingToken.text;
+      const headingText = token.text;
       const sectionText = headingText.replace(/^\d+\.\s+/, '');  // Remove any leading numbers
       const headingId = sectionText.toLowerCase().replace(/\s+/g, '-');
       
