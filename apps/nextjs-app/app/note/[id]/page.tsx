@@ -667,7 +667,12 @@ export default function NotePage() {
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeKatex]}
                     components={{
-                      code({ node, className, children, ...props }) {
+                      pre: ({ children }) => (
+                        <pre className="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-lg my-4">
+                          {children}
+                        </pre>
+                      ),
+                      code: ({ node, className, children, ...props }) => {
                         const match = /language-(\w+)/.exec(className || '');
                         const isInline = !node?.position?.start.line;
                         if (!isInline && match?.[1] === 'mermaid') {

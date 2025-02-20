@@ -42,6 +42,7 @@ interface MermaidRendererProps {
 
 const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const absoluteContainerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -50,8 +51,27 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
   const adjustScale = (delta: number) => {
     setScale((prev) => {
       const newScale = prev + delta;
-      return Math.min(Math.max(0.5, newScale), 2);
+      return Math.min(Math.max(0.1, newScale), 2);
     });
+  };
+
+  const fitToView = () => {
+    if (containerRef.current && absoluteContainerRef.current) {
+      const container = absoluteContainerRef.current;
+      const svg = container.querySelector('svg');
+      if (svg) {
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const svgWidth = svg.getBoundingClientRect().width / scale;
+        const svgHeight = svg.getBoundingClientRect().height / scale;
+        
+        const scaleX = containerWidth / svgWidth;
+        const scaleY = containerHeight / svgHeight;
+        const newScale = Math.min(scaleX, scaleY, 2) * 0.9; // 0.9 to add some padding
+        
+        setScale(Math.max(0.1, newScale));
+      }
+    }
   };
 
   useEffect(() => {
@@ -61,6 +81,8 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
         const id = `mermaid-${Math.random().toString(36).substring(2, 10)}`;
         const { svg } = await mermaid.render(id, chart);
         setSvgContent(svg);
+        // Add a small delay to ensure the SVG is in the DOM
+        setTimeout(fitToView, 100);
       } catch (error) {
         console.error("Mermaid rendering error:", error);
         setRenderError(
@@ -177,19 +199,21 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
   };
 
   return (
-    <div className="my-8 space-y-2">
+    <div className="my-4 space-y-2 ">
       <div
         className="relative mx-auto"
-        style={{ maxWidth: "800px", height: "90vh", overflow: "hidden" }}
+        style={{ maxWidth: "100%", height: "80vh", overflow: "hidden" }}
       >
-        <div className="absolute inset-0 overflow-auto">
+        <div
+          ref={absoluteContainerRef} 
+          className="absolute inset-0 overflow-auto flex items-center justify-center">
           <div
             ref={containerRef}
-            className="rounded-lg shadow-sm bg-white w-full"
+            className="rounded-lg shadow-sm bg-zinc-50 dark:bg-zinc-900 w-full h-full flex items-center justify-center"
             style={{
               minHeight: "100%",
               transform: `scale(${scale})`,
-              transformOrigin: "top left",
+              transformOrigin: "center center",
               transition: "transform 0.1s ease-out",
             }}
           />
@@ -201,18 +225,26 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
             variant="outline"
             size="sm"
             onClick={() => adjustScale(-0.1)}
-            className="text-xs"
+            className="text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200"
           >
             <ZoomOut className="h-3 w-3" />
           </Button>
-          <span className="text-xs mx-2">{Math.round(scale * 100)}%</span>
+          <span className="text-xs mx-2 text-zinc-900 dark:text-zinc-200">{Math.round(scale * 100)}%</span>
           <Button
             variant="outline"
             size="sm"
             onClick={() => adjustScale(0.1)}
-            className="text-xs"
+            className="text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200"
           >
             <ZoomIn className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fitToView}
+            className="text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 ml-2"
+          >
+            Fit
           </Button>
         </div>
         {svgContent && !renderError && (
@@ -221,7 +253,7 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
             size="sm"
             onClick={handleDownload}
             disabled={isDownloading}
-            className="text-xs"
+            className="text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200"
           >
             <Download className="h-3 w-3 mr-1" />
             {isDownloading ? "Downloading..." : "Download PNG"}
