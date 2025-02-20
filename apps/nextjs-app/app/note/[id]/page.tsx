@@ -177,6 +177,42 @@ export default function NotePage() {
     toast.success('Content copied to clipboard');
   }, [note?.content]);
 
+  const handleExportPdf = useCallback(async () => {
+    if (!note?.content) return;
+    
+    try {
+      setExportingPdf(true);
+      const doc = <PDFDocument content={note.content} />;
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = note.title ? `${note.title}.pdf` : 'note.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('PDF downloaded successfully');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [note?.content]);
+
+  const handleExportMarkdown = useCallback(() => {
+    const markdownContent = `# ${title}\n\n${content}`;
+    const blob = new Blob([markdownContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Markdown file downloaded');
+  }, [title, content]);
+
   const scrollToTop = useCallback((): void => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -432,28 +468,6 @@ export default function NotePage() {
     );
   };
 
-  const handleExportPdf = async () => {
-    if (!note?.content) return;
-    
-    try {
-      setExportingPdf(true);
-      const doc = <PDFDocument content={note.content} />;
-      const blob = await pdf(doc).toBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = note.title ? `${note.title}.pdf` : 'note.pdf';
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success('PDF downloaded successfully');
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      toast.error('Failed to export PDF');
-    } finally {
-      setExportingPdf(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
@@ -525,16 +539,8 @@ export default function NotePage() {
               </Button>
             </div>
 
-            {/* Desktop buttons */}
-            <div className="hidden sm:flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleExportPdf}
-                disabled={exportingPdf}
-              >
-                <Download className="h-4 w-4" />
-              </Button>
+            {/* Desktop actions */}
+            <div className="hidden sm:flex items-center gap-2">
               <Button
                 variant="outline"
                 size="icon"
@@ -555,6 +561,27 @@ export default function NotePage() {
                   <Star className="h-4 w-4" />
                 )}
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={exportingPdf}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportPdf} disabled={exportingPdf}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportMarkdown}>
+                    <ArrowUpToLine className="h-4 w-4 mr-2" />
+                    Export MD
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 size="icon"
@@ -581,10 +608,6 @@ export default function NotePage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleExportPdf} disabled={exportingPdf}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Export PDF
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleShare}>
                     <Share2 className={`h-4 w-4 mr-2 ${note.isPublic ? 'text-green-500' : ''}`} />
                     {note.isPublic ? 'Unshare' : 'Share'}
@@ -592,6 +615,14 @@ export default function NotePage() {
                   <DropdownMenuItem onClick={handleToggleFavorite}>
                     <Star className={`h-4 w-4 mr-2 ${note.isFavorite ? 'text-yellow-500 fill-current' : ''}`} />
                     {note.isFavorite ? 'Unfavorite' : 'Favorite'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPdf} disabled={exportingPdf}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportMarkdown}>
+                    <Code className="h-4 w-4 mr-2" />
+                    Export MD
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleCopyAll}>
                     <Copy className="h-4 w-4 mr-2" />

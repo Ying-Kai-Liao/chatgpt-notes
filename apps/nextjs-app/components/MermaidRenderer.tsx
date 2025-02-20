@@ -51,7 +51,7 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
   const adjustScale = (delta: number) => {
     setScale((prev) => {
       const newScale = prev + delta;
-      return Math.min(Math.max(0.1, newScale), 2);
+      return Math.min(Math.max(0.1, newScale), 4);
     });
   };
 
@@ -213,27 +213,27 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
             style={{
               minHeight: "100%",
               transform: `scale(${scale})`,
-              transformOrigin: "center center",
+              transformOrigin: "0 center",
               transition: "transform 0.1s ease-out",
             }}
           />
         </div>
       </div>
-      <div className="flex justify-end items-center gap-2 max-w-[800px] mx-auto">
+      <div className="flex flex-wrap justify-end items-center gap-2 max-w-full mx-auto px-2">
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => adjustScale(-0.1)}
+            onClick={() => adjustScale(-0.3)}
             className="text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200"
           >
             <ZoomOut className="h-3 w-3" />
           </Button>
-          <span className="text-xs mx-2 text-zinc-900 dark:text-zinc-200">{Math.round(scale * 100)}%</span>
+          <span className="text-xs mx-2 text-zinc-900 dark:text-zinc-200 min-w-[3rem] text-center">{Math.round(scale * 100)}%</span>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => adjustScale(0.1)}
+            onClick={() => adjustScale(0.3)}
             className="text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200"
           >
             <ZoomIn className="h-3 w-3" />
@@ -256,7 +256,7 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
             className="text-xs bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200"
           >
             <Download className="h-3 w-3 mr-1" />
-            {isDownloading ? "Downloading..." : "Download PNG"}
+            {isDownloading ? "..." : "PNG"}
           </Button>
         )}
       </div>
