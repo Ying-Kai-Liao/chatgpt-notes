@@ -51,7 +51,28 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
   const adjustScale = (delta: number) => {
     setScale((prev) => {
       const newScale = prev + delta;
-      return Math.min(Math.max(0.1, newScale), 4);
+      const finalScale = Math.min(Math.max(0.1, newScale), 4);
+      
+      // Center after scale change, especially important for small scales
+      setTimeout(() => {
+        if (absoluteContainerRef.current && containerRef.current) {
+          const container = absoluteContainerRef.current;
+          const content = containerRef.current;
+          const svg = content.querySelector('svg');
+          if (svg) {
+            const svgRect = svg.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // For small scales, ensure we can see the entire diagram
+            if (finalScale < 1) {
+              const scrollX = Math.max(0, (svgRect.width * finalScale - containerRect.width) / 2);
+              container.scrollLeft = scrollX;
+            }
+          }
+        }
+      }, 50);
+
+      return finalScale;
     });
   };
 
@@ -67,9 +88,19 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
         
         const scaleX = containerWidth / svgWidth;
         const scaleY = containerHeight / svgHeight;
-        const newScale = Math.min(scaleX, scaleY, 2) * 0.9; // 0.9 to add some padding
+        const newScale = Math.min(scaleX, scaleY, 2) * 0.96;
         
         setScale(Math.max(0.1, newScale));
+
+        // Center after fitting
+        setTimeout(() => {
+          if (container && containerRef.current) {
+            const contentRect = containerRef.current.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const scrollX = (contentRect.width - containerRect.width) / 2;
+            container.scrollLeft = scrollX;
+          }
+        }, 50);
       }
     }
   };
@@ -82,7 +113,17 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
         const { svg } = await mermaid.render(id, chart);
         setSvgContent(svg);
         // Add a small delay to ensure the SVG is in the DOM
-        setTimeout(fitToView, 100);
+        setTimeout(() => {
+          fitToView();
+          if (absoluteContainerRef.current && containerRef.current) {
+            const container = absoluteContainerRef.current;
+            const content = containerRef.current;
+            const contentRect = content.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const scrollX = (contentRect.width - containerRect.width) / 2;
+            container.scrollLeft = scrollX;
+          }
+        }, 100);
       } catch (error) {
         console.error("Mermaid rendering error:", error);
         setRenderError(
@@ -209,11 +250,11 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
           className="absolute inset-0 overflow-auto flex items-center justify-center">
           <div
             ref={containerRef}
-            className="rounded-lg shadow-sm bg-zinc-50 dark:bg-zinc-900 w-full h-full flex items-center justify-center"
+            className="rounded-lg bg-zinc-50 dark:bg-zinc-900 w-full h-full flex items-center justify-center p-4"
             style={{
               minHeight: "100%",
               transform: `scale(${scale})`,
-              transformOrigin: "0 center",
+              transformOrigin: scale < 1 ? "center center" : "0 center",
               transition: "transform 0.1s ease-out",
             }}
           />
