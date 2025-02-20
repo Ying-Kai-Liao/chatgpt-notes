@@ -23,22 +23,38 @@ mermaid.initialize({
   },
   themeVariables: {
     primaryColor: "#E9D5FF",
-    primaryTextColor: "#000000",
+    primaryTextColor: "#1F2937", // Darker text for better contrast
     primaryBorderColor: "#4B5563",
     lineColor: "#4B5563",
     secondaryColor: "#F3E8FF",
     tertiaryColor: "#FFFFFF",
     fontSize: "14px",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
     nodeBorder: "#4B5563",
     clusterBkg: "#F3E8FF",
     clusterBorder: "#4B5563",
     labelBackground: "#F3E8FF",
+    nodeTextColor: "#1F2937", // Darker text for node labels
+    mainBkg: "#FFFFFF", // Ensure white background for better contrast
+    textColor: "#1F2937", // Default text color
   },
+  suppressErrorRendering: true
 });
 
 interface MermaidRendererProps {
   chart: string;
 }
+
+const preprocessMermaidSyntax = (chart: string): string => {
+  // Match content inside square brackets that contains parentheses
+  return chart.replace(/\[(.*?\(.*?\).*?)\]/g, (match, content) => {
+    // If content isn't already quoted, add quotes
+    if (!content.startsWith('"') && !content.endsWith('"')) {
+      return `["${content}"]`;
+    }
+    return match;
+  });
+};
 
 const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -110,7 +126,9 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
       try {
         setRenderError(null);
         const id = `mermaid-${Math.random().toString(36).substring(2, 10)}`;
-        const { svg } = await mermaid.render(id, chart);
+        // Preprocess the chart syntax before rendering
+        const processedChart = preprocessMermaidSyntax(chart);
+        const { svg } = await mermaid.render(id, processedChart);
         setSvgContent(svg);
         // Add a small delay to ensure the SVG is in the DOM
         setTimeout(() => {
@@ -169,6 +187,8 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
           label.style.maxWidth = "150px";
           label.style.wordBreak = "break-word";
           label.style.lineHeight = "1.3";
+          label.style.color = "#1F2937"; // Ensure consistent text color
+          label.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
         }
       });
 
@@ -179,6 +199,19 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
           label.style.marginBottom = "0.5rem";
           label.style.fontSize = "1em";
           label.style.fontWeight = "500";
+          label.style.color = "#1F2937"; // Ensure consistent text color
+        }
+      });
+
+      // Style code blocks specifically
+      const codeLabels = containerRef.current.querySelectorAll("code, .code");
+      codeLabels.forEach((code) => {
+        if (code instanceof HTMLElement) {
+          code.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+          code.style.color = "#1F2937";
+          code.style.backgroundColor = "#F3F4F6";
+          code.style.padding = "0.1em 0.3em";
+          code.style.borderRadius = "0.2em";
         }
       });
     }
@@ -245,20 +278,26 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
         className="relative mx-auto"
         style={{ maxWidth: "100%", height: "80vh", overflow: "hidden" }}
       >
-        <div
-          ref={absoluteContainerRef} 
-          className="absolute inset-0 overflow-auto flex items-center justify-center">
+        {renderError ? (
+          <div className="w-full h-full flex items-center justify-center text-sm text-zinc-500">
+            Invalid diagram syntax
+          </div>
+        ) : (
           <div
-            ref={containerRef}
-            className="rounded-lg bg-zinc-50 dark:bg-zinc-900 w-full h-full flex items-center justify-center p-4"
-            style={{
-              minHeight: "100%",
-              transform: `scale(${scale})`,
-              transformOrigin: scale < 1 ? "center center" : "0 center",
-              transition: "transform 0.1s ease-out",
-            }}
-          />
-        </div>
+            ref={absoluteContainerRef} 
+            className="absolute inset-0 overflow-auto flex items-center justify-center">
+            <div
+              ref={containerRef}
+              className="rounded-lg bg-zinc-50 dark:bg-zinc-900 w-full h-full flex items-center justify-center p-4"
+              style={{
+                minHeight: "100%",
+                transform: `scale(${scale})`,
+                transformOrigin: scale < 1 ? "center center" : "0 center",
+                transition: "transform 0.1s ease-out",
+              }}
+            />
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap justify-end items-center gap-2 max-w-full mx-auto px-2">
         <div className="flex items-center gap-1">
@@ -301,11 +340,6 @@ const MermaidRenderer: React.FC<MermaidRendererProps> = memo(({ chart }) => {
           </Button>
         )}
       </div>
-      {renderError && (
-        <div className="text-red-500 text-sm mt-2">
-          Error rendering diagram: {renderError}
-        </div>
-      )}
     </div>
   );
 });
