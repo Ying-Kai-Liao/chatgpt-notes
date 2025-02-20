@@ -29,6 +29,8 @@ export interface Note {
   shareId?: string;
   workspaceId: string | null;
   isFavorite?: boolean;
+  hasMermaid?: boolean;
+  firstMermaidDiagram?: string;
 }
 
 export interface NoteMetadata {
@@ -41,6 +43,15 @@ export interface NoteMetadata {
   shareId?: string;
   workspaceId: string | null;
   isFavorite?: boolean;
+  hasMermaid?: boolean;
+  firstMermaidDiagram?: string;
+}
+
+// Helper function to extract the first Mermaid diagram from content
+function extractFirstMermaidDiagram(content: string): string | null {
+  const mermaidRegex = /```mermaid\n([\s\S]*?)```/;
+  const match = content.match(mermaidRegex);
+  return match ? match[1].trim() : null;
 }
 
 const noteConverter: FirestoreDataConverter<Note> = {
@@ -55,6 +66,8 @@ const noteConverter: FirestoreDataConverter<Note> = {
       shareId: note.shareId || null,
       workspaceId: note.workspaceId || null,
       isFavorite: note.isFavorite || false,
+      hasMermaid: note.hasMermaid || false,
+      firstMermaidDiagram: note.firstMermaidDiagram || null,
     };
   },
   fromFirestore(
@@ -73,6 +86,8 @@ const noteConverter: FirestoreDataConverter<Note> = {
       shareId: data.shareId,
       workspaceId: data.workspaceId ?? null,
       isFavorite: data.isFavorite || false,
+      hasMermaid: data.hasMermaid || false,
+      firstMermaidDiagram: data.firstMermaidDiagram || null,
     };
   },
 };
@@ -88,6 +103,8 @@ const noteMetadataConverter: FirestoreDataConverter<NoteMetadata> = {
       shareId: note.shareId || null,
       workspaceId: note.workspaceId || null,
       isFavorite: note.isFavorite || false,
+      hasMermaid: note.hasMermaid || false,
+      firstMermaidDiagram: note.firstMermaidDiagram || null,
     };
   },
   fromFirestore(
@@ -101,10 +118,12 @@ const noteMetadataConverter: FirestoreDataConverter<NoteMetadata> = {
       userId: data.userId,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
-      isPublic: data.isPublic || false,
+      isPublic: data.isPublic ?? false,
       shareId: data.shareId,
-      workspaceId: data.workspaceId,
+      workspaceId: data.workspaceId ?? null,
       isFavorite: data.isFavorite || false,
+      hasMermaid: data.hasMermaid || false,
+      firstMermaidDiagram: data.firstMermaidDiagram || null,
     };
   },
 };
@@ -115,9 +134,9 @@ export async function createNote(
   workspaceId: string | null = null
 ): Promise<string> {
   const notesRef = collection(db, 'notes').withConverter(noteConverter);
-
-  // Extract title from first line, limited to 100 chars
   const title = content.split('\n')[0].slice(0, 100);
+  const firstMermaidDiagram = extractFirstMermaidDiagram(content);
+  const hasMermaid = !!firstMermaidDiagram;
 
   const noteData: Omit<Note, 'id'> = {
     userId,
@@ -128,6 +147,8 @@ export async function createNote(
     isPublic: false,
     workspaceId,
     isFavorite: false,
+    hasMermaid,
+    firstMermaidDiagram: firstMermaidDiagram ?? undefined,
   };
 
   const docRef = await addDoc(notesRef, noteData);
@@ -158,13 +179,17 @@ export async function getNote(noteId: string): Promise<Note | null> {
 }
 
 export async function updateNote(noteId: string, content: string): Promise<void> {
-  const noteRef = doc(db, 'notes', noteId);
+  const noteRef = doc(db, 'notes', noteId).withConverter(noteConverter);
   const title = content.split('\n')[0].slice(0, 100);
-
+  const firstMermaidDiagram = extractFirstMermaidDiagram(content);
+  const hasMermaid = !!firstMermaidDiagram;
+  
   await updateDoc(noteRef, {
     content,
     title,
     updatedAt: Timestamp.now(),
+    hasMermaid,
+    firstMermaidDiagram: firstMermaidDiagram || deleteField(),
   });
 }
 
@@ -257,6 +282,8 @@ export async function getUserNotesWithWorkspaces(userId: string): Promise<Worksp
       shareId: data.shareId,
       workspaceId: data.workspaceId,
       isFavorite: data.isFavorite,
+      hasMermaid: data.hasMermaid,
+      firstMermaidDiagram: data.firstMermaidDiagram,
     };
   });
 

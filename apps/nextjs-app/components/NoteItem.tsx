@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { deleteNote, type NoteMetadata } from '@/lib/db';
 import toast from 'react-hot-toast';
+import MermaidRenderer from '@/components/MermaidRenderer';
 
 interface NoteItemProps {
   note: NoteMetadata;
@@ -86,15 +87,21 @@ export default function NoteItem({
       <Card className="hover:shadow-md transition-shadow">
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
           <div className="flex items-center space-x-2">
-            <h3 className="font-medium text-lg h-16">{note.title || 'Untitled'}</h3>
+            <h3 className="font-medium text-lg h-20">{note.title || 'Untitled'}</h3>
             {note.isPublic && (
               <div className="flex items-center text-sm">
                 <Share2 className="h-4 w-4" />
               </div>
             )}
           </div>
+          {note.firstMermaidDiagram && (
+              <div className="flex max-h-20 max-w-16 overflow-hidden relative">
+                <div className="scale-[0.2] md:scale-[0.15] origin-top-left absolute top-0 left-0 -translate-x-10 md:-translate-x-2 translate-y-5 md:translate-y-10 pointer-events-none">
+                  <MermaidRenderer chart={note.firstMermaidDiagram} />
+                </div>
+              </div>
+            )}
           <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-
             <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
               <Button
                 variant="ghost"
@@ -149,16 +156,20 @@ export default function NoteItem({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
         </CardHeader>
         <CardContent>
-          {/* <p className="text-sm text-gray-500 line-clamp-2">{note.content}</p> */}
-          <p className="text-xs text-gray-400 mt-2">
-            {new Date(note.updatedAt.toDate()).toLocaleDateString(undefined, {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </p>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <p className="text-xs text-gray-400">
+                {new Date(note.updatedAt.toDate()).toLocaleDateString(undefined, {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </Link>
